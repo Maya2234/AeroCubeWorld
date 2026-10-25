@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project 0: Cube Landscape</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; height: 100%; background: #000; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: #e9edf2;
+      font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- header bar ---------- */
+
+    header {
+      position: relative;
+      z-index: 10;
+      flex: none;
+      padding: 12px 24px 10px;
+      background: #0b0d10;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      user-select: none;
+    }
+
+    .bar-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #98a2b3;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .byline {
+      margin: 2px 0 0;
+      color: #98a2b3;
+      font-size: 14px;
+    }
+
+    /* Level strip: grows with the assignment, anchored to the right edge so
+       it never shifts when the title text changes. */
+    .levels {
+      display: flex;
+      flex: none;
+      gap: 4px;
+      padding-top: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .levels::-webkit-scrollbar { display: none; }
+
+    .levels button {
+      appearance: none;
+      min-width: 34px;
+      padding: 6px 10px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #c3cbd6;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .levels button:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.09);
+      color: #fff;
+    }
+
+    .levels button:focus-visible {
+      outline: 2px solid #4cc2ff;
+      outline-offset: 2px;
+    }
+
+    .levels button[aria-current] {
+      background: rgba(76, 194, 255, 0.14);
+      border-color: rgba(76, 194, 255, 0.4);
+      color: #cfeaff;
+      font-weight: 600;
+    }
+
+    .levels button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ---------- info row ---------- */
+
+    .bar-info {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .tagline {
+      margin: 0;
+      color: #d5dbe4;
+      font-size: 13px;
+    }
+
+    .meta {
+      margin: 0 0 0 auto;
+      color: #7f8b9c;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    /* Grid resolution picker: same pill language as the level tabs. */
+    .res {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .res[hidden] { display: none; }
+
+    .res-label {
+      margin-right: 2px;
+      color: #7f8b9c;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .res button {
+      appearance: none;
+      min-width: 40px;
+      padding: 3px 7px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #c3cbd6;
+      font: inherit;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+    }
+
+    .res button:hover { background: rgba(255, 255, 255, 0.09); color: #fff; }
+
+    .res button[aria-pressed="true"] {
+      background: rgba(76, 194, 255, 0.14);
+      border-color: rgba(76, 194, 255, 0.4);
+      color: #cfeaff;
+    }
+
+    .res button:focus-visible {
+      outline: 2px solid #4cc2ff;
+      outline-offset: 2px;
+    }
+
+    /* About is a <details> so the toggle needs no JavaScript. Its card is
+       absolutely positioned, so opening it covers the canvas instead of
+       resizing it (a resize would leave the WebGL buffer stale). */
+    .about { position: static; }
+
+    .about summary {
+      padding: 4px 2px;
+      border-radius: 4px;
+      color: #9fb0c4;
+      font-size: 13px;
+      white-space: nowrap;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .about summary::-webkit-details-marker { display: none; }
+
+    .about summary::after { content: " \25BE"; font-size: 10px; }
+
+    .about[open] summary { color: #fff; }
+
+    .about[open] summary::after { content: " \25B4"; }
+
+    .about summary:focus-visible {
+      outline: 2px solid #4cc2ff;
+      outline-offset: 2px;
+    }
+
+    .about-card {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px 32px;
+      max-height: 70vh;
+      overflow-y: auto;
+      padding: 18px 24px 20px;
+      background: #0f1217;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.55);
+    }
+
+    .about-card h2 {
+      margin: 0 0 3px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8ea1b8;
+    }
+
+    .about-card p {
+      margin: 0;
+      color: #c3cbd6;
+      font-size: 13px;
+      max-width: 55ch;
+    }
+
+    /* ---------- canvas stage ---------- */
+
+    main {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    @media (max-width: 640px) {
+      header { padding: 10px 14px 8px; }
+
+      h1 { font-size: 21px; }
+
+      .eyebrow { display: none; }
+
+      .bar-top {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .levels {
+        width: 100%;
+        padding-top: 0;
+      }
+
+      .bar-info { margin-top: 8px; padding-top: 8px; gap: 6px 12px; }
+
+      .tagline { display: none; }
+
+      .meta {
+        margin: 0;
+        font-size: 11px;
+        white-space: normal;
+      }
+
+      .about-card { padding: 14px 14px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar-top">
+      <div class="identity">
+        <p class="eyebrow">WebGL Cube Landscapes &middot; Project 0</p>
+        <h1>Cube Landscape</h1>
+        <p class="byline">Maya Tomarchio</p>
+      </div>
+
+      <nav class="levels" aria-label="Project levels">
+        <button type="button" data-mode="0" title="Level 0 &mdash; a single 2 &times; 2 &times; 2 cube">0</button>
+        <button type="button" data-mode="1a" title="Level 1a &mdash; a grid of cubes, translation only">1a</button>
+        <button type="button" data-mode="1bc" title="Level 1b/c &mdash; heights and vertex colours">1b/c</button>
+        <button type="button" data-mode="1d" title="Level 1d &mdash; the camera orbit">1d</button>
+        <button type="button" disabled title="Level 2 &mdash; height and colour from images">2</button>
+        <button type="button" disabled title="Level 3 &mdash; cube skyscape">3</button>
+        <button type="button" disabled title="Level 4 &mdash; light, skybox, atmosphere">4</button>
+      </nav>
+    </div>
+
+    <div class="bar-info">
+      <p class="tagline" id="tagline">A cube landscape built from scratch in WebGL</p>
+
+      <div class="res" id="res" role="group" aria-label="Grid resolution">
+        <span class="res-label">Grid</span>
+        <button type="button" data-n="16" aria-pressed="false" title="16 &times; 16 = 256 cubes">16&sup2;</button>
+        <button type="button" data-n="32" aria-pressed="false" title="32 &times; 32 = 1,024 cubes">32&sup2;</button>
+        <button type="button" data-n="64" aria-pressed="false" title="64 &times; 64 = 4,096 cubes">64&sup2;</button>
+        <button type="button" data-n="96" aria-pressed="false" title="96 &times; 96 = 9,216 cubes">96&sup2;</button>
+        <button type="button" data-n="128" aria-pressed="false" title="128 &times; 128 = 16,384 cubes">128&sup2;</button>
+      </div>
+
+      <p class="meta" id="status">loading&hellip;</p>
+
+      <details class="about">
+        <summary>About this project</summary>
+        <div class="about-card">
+          <div>
+            <h2>What this is</h2>
+            <p>A small WebGL scene built without a 3D library: geometry, matrices
+              and shading are all written directly against the raw WebGL API.</p>
+          </div>
+          <div>
+            <h2>How it is built</h2>
+            <p>One unit cube of 36 vertices is copied into a grid, each copy
+              translated to its cell and scaled in y, with a colour per corner.
+              Perspective and look-at matrices place the camera; the fragment
+              shader blends the corner colours and lights every face.</p>
+          </div>
+          <div>
+            <h2>The tabs</h2>
+            <p>Each tab isolates one part of Level 1: <b>1a</b> translation into a
+              grid, <b>1b/c</b> heights and per-vertex colour, <b>1d</b> the
+              camera orbiting the centre. The grid buttons change the resolution
+              without changing the landscape.</p>
+          </div>
+          <div>
+            <h2>Performance</h2>
+            <p>The landscape is one buffer drawn in a single call, so it stays
+              smooth up to tens of thousands of cubes. The readout shows the
+              resolution, cube count, rebuild time and frame rate; a reasonably
+              fast GPU helps at the top settings.</p>
+          </div>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <main>
+    <canvas id="c"></canvas>
+  </main>
+
+  <script src="index.js"></script>
+</body>
+</html>
