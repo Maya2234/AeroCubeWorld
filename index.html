@@ -300,8 +300,8 @@
         <button type="button" data-mode="1a" title="Level 1a &mdash; a grid of cubes, translation only">1a</button>
         <button type="button" data-mode="1bc" title="Level 1b/c &mdash; heights and vertex colours">1b/c</button>
         <button type="button" data-mode="1d" title="Level 1d &mdash; the camera orbit">1d</button>
-        <button type="button" disabled title="Level 2 &mdash; height and colour from images">2</button>
-        <button type="button" disabled title="Level 3 &mdash; cube skyscape">3</button>
+        <button type="button" data-mode="2" title="Level 2 &mdash; heights and colours sampled from a PNG pair">2</button>
+        <button type="button" data-mode="3" title="Level 3 &mdash; cube skyscape moving along bezier curves">3</button>
         <button type="button" disabled title="Level 4 &mdash; light, skybox, atmosphere">4</button>
       </nav>
     </div>
@@ -333,14 +333,21 @@
             <p>One unit cube of 36 vertices is copied into a grid, each copy
               translated to its cell and scaled in y, with a colour per corner.
               Perspective and look-at matrices place the camera; the fragment
-              shader blends the corner colours and lights every face.</p>
+              shader blends the corner colours and lights every face. Level 2
+              replaces the noise and palette with a box-filtered sample of two
+              PNGs; Level 3 draws each sky object from its own buffer with a
+              per-object model matrix.</p>
           </div>
           <div>
             <h2>The tabs</h2>
-            <p>Each tab isolates one part of Level 1: <b>1a</b> translation into a
-              grid, <b>1b/c</b> heights and per-vertex colour, <b>1d</b> the
-              camera orbiting the centre. The grid buttons change the resolution
-              without changing the landscape.</p>
+            <p>Each tab isolates one idea: <b>1a</b> translation into a grid,
+              <b>1b/c</b> heights and per-vertex colour, <b>1d</b> the orbit
+              camera, <b>2</b> heights and colours sampled from
+              <code>assets/color-map.png</code> and
+              <code>height-map.png</code>, <b>3</b> cube islands and clouds
+              moving along cubic bezier curves over a still camera. The grid
+              buttons change the resolution without changing the landscape;
+              scrolling over the canvas zooms in, and double-clicking resets it.</p>
           </div>
           <div>
             <h2>Performance</h2>
@@ -355,7 +362,7 @@
   </header>
 
   <main>
-    <canvas id="c"></canvas>
+    <canvas id="c" title="Scroll to zoom in; double-click to reset"></canvas>
   </main>
 
   <script src="index.js"></script>

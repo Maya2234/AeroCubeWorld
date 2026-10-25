@@ -337,13 +337,13 @@ One angle that grows with time, converted to a point on a circle:
 
 ```js
 const angle = time * ORBIT_SPEED;          // 0.22 rad/s ≈ one lap in 28.6 s
-const radius = span * 1.4 * fit;
-const eye = [Math.cos(angle) * radius, span * 0.62 * fit, Math.sin(angle) * radius];
+const radius = span * 1.2 * fit;
+const eye = [Math.cos(angle) * radius, span * 0.45 * fit, Math.sin(angle) * radius];
 const target = [0, 0, 0];
 ```
 
 Both radius and height are proportional to `span`, so the framing is identical at every
-resolution. `fit = max(1, 1.35 / aspect)` pulls the camera back on a narrow window: a tall
+resolution. `fit = max(1, 1.5 / aspect)` pulls the camera back on a narrow window: a tall
 phone-shaped viewport has a small horizontal field of view, and without the adjustment the
 sides of the landscape would be cropped.
 
@@ -369,11 +369,14 @@ animation system involved.
 ### Projection
 
 ```js
-perspective(Math.PI / 4, canvas.width / canvas.height, near, far)
+perspective(BASE_FIELD_OF_VIEW / state.zoom, canvas.width / canvas.height, near, far)
 ```
 
-45° vertical field of view, aspect from the canvas, and near/far from the terrain size. This
-is what makes distant cubes smaller and produces the strong sense of depth in the `1d` tab.
+`BASE_FIELD_OF_VIEW` is 33° — a longer lens than the usual 45°, chosen so the landscape fills
+more of a wide canvas instead of sitting in the middle of a black frame. Scroll-wheel zoom
+divides it further (33° / 1.8 ≈ 18°), which magnifies without moving the camera. The aspect
+comes from the canvas and near/far from the terrain size. This is what makes distant cubes
+smaller and produces the strong sense of depth in the `1d` tab.
 
 ### The animation loop
 
@@ -488,3 +491,6 @@ Level 2 does not change any of this machinery. It swaps the two procedures:
 `buildGrid`, `writeCube`, the matrices, the orbit camera and the single-draw optimisation all
 stay exactly as they are. That is a good sign the Level 1 structure is right: the data source
 is a detail, and the geometry pipeline is the thing you are actually building.
+
+Levels 2 and 3 are now implemented in [index.js](index.js); the companion document is
+[level-2-3-walkthrough.md](level-2-3-walkthrough.md).
