@@ -25,6 +25,8 @@ const resButtons = [...document.querySelectorAll('#res button')];
 const unitGroup = document.getElementById('units');
 const unitButtons = [...document.querySelectorAll('#units button')];
 const orbitButton = document.getElementById('orbit');
+const dockButton = document.getElementById('dock');
+const headerEl = document.querySelector('header');
 const zoomInButton = document.getElementById('zoom-in');
 const zoomOutButton = document.getElementById('zoom-out');
 const zoomResetButton = document.getElementById('zoom-reset');
@@ -77,8 +79,47 @@ const fragmentShaderSource = `
   uniform vec3 uCameraPosition;
   uniform float uShine;       // 0 = plain matte (Levels 0–1c), 1 = glossy city
   uniform float uBubble;      // 1 while drawing a soap bubble
+  uniform float uRainbow;     // 1 while drawing the rainbow (Level 4)
+  uniform float uHaze;        // 1 to fade distant things into the sky (Level 4)
+  uniform vec2 uHazeRange;    // where the haze starts and where it's complete
+  uniform float uCanvasHeight;
+
+  // The CSS sky behind the canvas, worked out for this pixel's height on the
+  // screen: the same four gradient stops as the page's background. Haze
+  // fades toward exactly this, so far-off ground melts into the sky behind
+  // it instead of ending at a hard edge.
+  vec3 skyBehind() {
+    float s = 1.0 - gl_FragCoord.y / uCanvasHeight;   // 0 at the top, 1 at the bottom
+    vec3 top = vec3(0.122, 0.525, 0.878);             // #1f86e0
+    vec3 upper = vec3(0.310, 0.690, 0.949);           // #4fb0f2
+    vec3 lower = vec3(0.624, 0.851, 0.984);           // #9fd9fb
+    vec3 bottom = vec3(0.871, 0.957, 1.0);            // #def4ff
+    if (s < 0.35) return mix(top, upper, s / 0.35);
+    if (s < 0.65) return mix(upper, lower, (s - 0.35) / 0.3);
+    return mix(lower, bottom, (s - 0.65) / 0.35);
+  }
+
+  vec3 hazed(vec3 color) {
+    float away = length(uCameraPosition - vWorldPosition);
+    float amount = uHaze * smoothstep(uHazeRange.x, uHazeRange.y, away);
+    return mix(color, skyBehind(), amount);
+  }
 
   void main() {
+    if (uRainbow > 0.5) {
+      // The rainbow's red channel holds how far across its width this point
+      // is (0 inner edge, 1 outer edge). Turn that into the bands, violet on
+      // the inside to red on the outside, fading out at both edges.
+      float t = clamp(vColor.r, 0.0, 1.0);
+      vec3 band = 0.5 + 0.5 * cos(6.2832 * ((1.0 - t) * 0.78 + vec3(0.0, 0.67, 0.33)));
+      // Green holds how far up the arc this is: a half rainbow fades away
+      // before the top.
+      float fade = 1.0 - smoothstep(0.5, 1.0, vColor.g);
+      float alpha = 0.42 * pow(sin(3.1416 * t), 0.7) * fade;
+      gl_FragColor = vec4(band, alpha);
+      return;
+    }
+
     // A varying is blended across the triangle, so its length changes.
     // Normalising it brings it back to a unit direction.
     vec3 normal = normalize(vNormal);
@@ -95,9 +136,9 @@ const fragmentShaderSource = `
       float facing = max(dot(normal, toCamera), 0.0);
       float rim = pow(1.0 - facing, 2.0);
       vec3 film = 0.6 + 0.4 * cos(6.2832 * (rim * 1.3 + vec3(0.0, 0.33, 0.67)));
-      vec3 color = mix(vec3(0.9, 0.97, 1.0), film, 0.5 * rim);
+      vec3 color = mix(vec3(0.88, 0.96, 1.0), film, 0.6 * rim);
       float spec = pow(max(dot(normal, halfway), 0.0), 90.0);
-      float alpha = 0.06 + 0.6 * rim + spec;
+      float alpha = 0.14 + 0.7 * rim + spec;
       gl_FragColor = vec4(color + spec, min(alpha, 1.0));
       return;
     }
@@ -116,7 +157,7 @@ const fragmentShaderSource = `
     float spec = pow(max(dot(normal, halfway), 0.0), 24.0);
     color += uShine * (0.35 * spec + 0.16 * (1.0 - brightness) * vec3(0.55, 0.8, 1.0));
 
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(hazed(color), 1.0);
   }
 `;
 
@@ -391,17 +432,18 @@ function heightField(n) {
 /* ---------------------------------------------------------------------
    5. Level 1c — the colour procedure
    ---------------------------------------------------------------------
-   Four stops from valley floor to peak. Each cube corner gets the colour
-   for its OWN height, so the six faces blend from dark at the base to the
-   colour of that cube's top. That blend is the interpolation the fragment
-   shader does for free.
+   Five stops from valley floor to peak, in the same bright greens as the
+   city maps' grass. Each cube corner gets the colour for its OWN height, so
+   the six faces blend from dark at the base to the colour of that cube's
+   top. That blend is the interpolation the fragment shader does for free.
    --------------------------------------------------------------------- */
 
 const PALETTE = [
-  [0.07, 0.16, 0.34],   // 0.00  deepest hollows
-  [0.09, 0.40, 0.47],   // 0.33  lowland
-  [0.36, 0.63, 0.36],   // 0.66  slopes
-  [0.93, 0.88, 0.70],   // 1.00  peaks
+  [0.08, 0.36, 0.30],   // 0.00  shaded hollows, a deep teal green
+  [0.16, 0.58, 0.52],   // 0.25  damp lowland, teal like the lake's edge
+  [0.24, 0.71, 0.18],   // 0.50  grass, the city maps' low grass
+  [0.45, 0.82, 0.24],   // 0.75  sunlit slopes
+  [0.68, 0.92, 0.26],   // 1.00  hilltops, the maps' bright lime
 ];
 
 const vertexColor = [0, 0, 0];
@@ -538,12 +580,6 @@ function buildGrid(n, options) {
    every pixel in the cell would smooth away the fine bumps.
    --------------------------------------------------------------------- */
 
-const IMAGE_MAP = {
-  color: null,        // { pixels, width, height }
-  height: null,
-  status: 'loading',  // loading | ready | failed
-};
-
 function loadPixels(url) {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -601,13 +637,53 @@ const IMAGE_HEIGHT_RATIO = 0.3;
 // after changing it.
 const CITY_EXTENT = 1;
 
-// Levels 2 and 3: the grid, built from the two images instead of from
-// noise. Returns null until the PNGs have finished decoding.
-function buildImageGrid(n) {
-  if (IMAGE_MAP.status !== 'ready') return null;
+// Level 4's metro map covers this many times the middle square: the city
+// sprawls across most of it, with countryside out to the edges, far enough
+// that the ground runs off toward the horizon instead of ending at an island
+// edge. tools/make-city-maps.mjs metro reads this value.
+const METRO_EXTENT = 2.5;
 
-  const { color, height } = IMAGE_MAP;
-  const across = Math.round(n * CITY_EXTENT);   // cubes per side, margin included
+// The two pairs of maps: the island (Levels 2 and 3) and the metro (Level
+// 4). Each level names its set in MODES; the rest of the code asks
+// currentMap() for the one on screen. The metro is 2.5 times wider, so its
+// grid size is capped to keep the cube count (and memory) sensible.
+const MAP_SETS = {
+  island: {
+    files: ['assets/color-map.png', 'assets/height-map.png'],
+    extent: CITY_EXTENT,
+    maxN: Infinity,
+    color: null,        // { pixels, width, height }
+    height: null,
+    status: 'loading',  // loading | ready | failed
+  },
+  metro: {
+    files: ['assets/metro-color-map.png', 'assets/metro-height-map.png'],
+    extent: METRO_EXTENT,
+    maxN: 96,           // 96 × 2.5 = 240 cubes a side, about 58,000 in all
+    color: null,
+    height: null,
+    status: 'loading',
+  },
+};
+
+function currentMap() {
+  return MAP_SETS[MODES[state.mode].mapSet ?? 'island'];
+}
+
+// The grid size a level actually builds at: the metro caps it.
+function gridSize(n) {
+  return Math.min(n, currentMap().maxN);
+}
+
+// Levels 2, 3 and 4: the grid, built from the two images instead of from
+// noise. Returns null until the PNGs have finished decoding.
+function buildImageGrid(requested) {
+  const map = currentMap();
+  if (map.status !== 'ready') return null;
+
+  const n = gridSize(requested);
+  const { color, height } = map;
+  const across = Math.round(n * map.extent);    // cubes per side, margin included
   const cells = across * across;
   const data = new Float32Array(cells * VERTS_PER_CUBE * FLOATS_PER_VERTEX);
   const half = (across - 1) / 2;
@@ -651,25 +727,25 @@ function buildImageGrid(n) {
   };
 }
 
-// Start loading immediately; an image level rebuilds itself when ready.
-Promise.all([
-  loadPixels('assets/color-map.png'),
-  loadPixels('assets/height-map.png'),
-]).then(([color, height]) => {
-  IMAGE_MAP.color = color;
-  IMAGE_MAP.height = height;
-  IMAGE_MAP.status = 'ready';
+// Start loading both sets immediately; a level using one rebuilds itself
+// when its maps are ready.
+for (const map of Object.values(MAP_SETS)) {
+  Promise.all(map.files.map(loadPixels)).then(([color, height]) => {
+    map.color = color;
+    map.height = height;
+    map.status = 'ready';
 
-  if (MODES[state.mode].maps) {
-    rebuild();
-    restartRendering();
+    if (MODES[state.mode].maps && currentMap() === map) {
+      rebuild();
+      restartRendering();
+      updateStatus();
+    }
+  }).catch((error) => {
+    map.status = 'failed';
+    console.warn(`Image maps ${map.files.join(', ')} failed to load:`, error);
     updateStatus();
-  }
-}).catch((error) => {
-  IMAGE_MAP.status = 'failed';
-  console.warn('Image maps failed to load:', error);
-  updateStatus();
-});
+  });
+}
 
 // Level 0: one cube measuring 2 × 2 × 2, centred on the origin.
 function buildSingleCube() {
@@ -1017,9 +1093,10 @@ const SKY_DEFINITIONS = [
 // units. Each cube's height is read exactly the way buildImageGrid() reads
 // it, from the one image pixel at its cell, so none can be missed.
 function groundUnder(x, z, r, span) {
-  if (IMAGE_MAP.status !== 'ready') return 0;
+  const map = currentMap();
+  if (map.status !== 'ready') return 0;
   const n = Math.round(span / SPACING);
-  const across = Math.round(n * CITY_EXTENT);
+  const across = Math.round(n * map.extent);
   const half = (across - 1) / 2;
   const cell = SPACING * LANDSCAPE_SCALE;
   const shortest = span * 0.012;
@@ -1036,7 +1113,7 @@ function groundUnder(x, z, r, span) {
       const dx = Math.max(Math.abs(x - (i - half) * cell) - cell / 2, 0);
       const dz = Math.max(Math.abs(z - (j - half) * cell) - cell / 2, 0);
       if (Math.hypot(dx, dz) > r) continue;
-      const brightness = sampleChannel(IMAGE_MAP.height, i / (across - 1), 1 - j / (across - 1), 0);
+      const brightness = sampleChannel(map.height, i / (across - 1), 1 - j / (across - 1), 0);
       highest = Math.max(highest, (shortest + brightness * (tallest - shortest)) * LANDSCAPE_SCALE);
     }
   }
@@ -1231,14 +1308,143 @@ function drawSkyObject({ object, model, flap }) {
   }
 }
 
+/* ---------------------------------------------------------------------
+   Level 4 extras: a rainbow, and bubbles you click into the scene
+   --------------------------------------------------------------------- */
+
+// The rainbow: a half rainbow, one leg of the arc rising from the horizon
+// and fading away before it reaches the top, made of thin wedges of a flat
+// ring. Its red channel holds how far across the ring's width each corner
+// is (0 inside, 1 outside), and its green channel how far up the arc (0 at
+// the foot, 1 at the top); the fragment shader turns those into the bands
+// and the fade.
+const RAINBOW_WIDTH = 0.12;     // of the ring's radius
+
+function buildRainbow(segments) {
+  const data = new Float32Array(segments * 6 * FLOATS_PER_VERTEX);
+  let o = 0;
+  const put = (along, t) => {
+    const angle = along * Math.PI / 2;    // a quarter turn: foot to top
+    const r = 1 - RAINBOW_WIDTH + RAINBOW_WIDTH * t;
+    data.set([Math.cos(angle) * r, Math.sin(angle) * r, 0, 0, 0, 1, t, along, 0], o);
+    o += FLOATS_PER_VERTEX;
+  };
+  for (let k = 0; k < segments; k++) {
+    const a = k / segments;
+    const b = (k + 1) / segments;
+    put(a, 0); put(b, 0); put(b, 1);
+    put(a, 0); put(b, 1); put(a, 1);
+  }
+  return { data, vertexCount: segments * 6 };
+}
+
+const RAINBOW = (() => {
+  const built = buildRainbow(96);
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, built.data, gl.STATIC_DRAW);
+  return { buffer, vertexCount: built.vertexCount };
+})();
+
+// A new spot every time the page loads: somewhere far behind the city,
+// left or right of centre, a random size, rising from the right or the left,
+// with its foot below the horizon so it melts into the haze. Kept within
+// what the opening view shows. In fractions of the terrain width.
+const RAINBOW_SPOT = (() => {
+  const back = 2.6 + Math.random() * 0.8;
+  const across = -1.0 + Math.random() * 1.6;
+  return {
+    centre: [
+      LANE_CENTRE[0] + LANE_RIGHT[0] * across + LANE_BACK[0] * back,
+      -0.25 + Math.random() * 0.15,
+      LANE_CENTRE[1] + LANE_RIGHT[1] * across + LANE_BACK[1] * back,
+    ],
+    radius: 0.9 + Math.random() * 0.5,
+    side: Math.random() < 0.5 ? 1 : -1,     // which leg: rising from the right or left
+  };
+})();
+
+function drawRainbow(eye) {
+  const span = state.span;
+  const [cx, cy, cz] = RAINBOW_SPOT.centre.map((c) => c * span);
+  const size = RAINBOW_SPOT.radius * span;
+  // A real rainbow always faces whoever is looking at it, so turn the ring
+  // toward the camera wherever it has been steered. A negative x scale
+  // mirrors the leg to the other side.
+  const facing = Math.atan2(eye[0] - cx, eye[2] - cz);
+  const model = multiply(
+    translation(cx, cy, cz),
+    multiply(rotationY(facing), scaling(size * RAINBOW_SPOT.side, size, size)),
+  );
+
+  gl.enable(gl.BLEND);
+  gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.depthMask(false);
+  gl.uniform1f(uRainbow, 1);
+  drawPart(model, RAINBOW);
+  gl.uniform1f(uRainbow, 0);
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+}
+
+// Bubbles clicked into the scene: each starts where you clicked (just above
+// the ground, or out in the air if you clicked the sky), then floats up and
+// drifts with the clouds' wind, wobbling a little, until it pops after a
+// while. Positions are in world units, so the list is cleared whenever the
+// landscape is rebuilt at a new size.
+const SPAWNED = [];
+const SPAWN_LIMIT = 40;
+const SPAWN_LIFE = 28;          // seconds before a bubble pops
+const SPAWN_RISE = 0.012;       // terrain widths per second
+const SPAWN_DRIFT = 0.01;
+
+// `y` is where it starts in the air; leave it out to start on the ground.
+function spawnBubble(x, z, time, y = null) {
+  if (SPAWNED.length >= SPAWN_LIMIT) SPAWNED.shift();
+  SPAWNED.push({ x, y, z, born: time, scale: 0.009 + Math.random() * 0.007, seed: Math.random() * 10 });
+}
+
+function placeSpawned(time, span) {
+  const sphere = SKY_OBJECTS.find((object) => object.bubble);
+  const items = [];
+  for (let k = SPAWNED.length - 1; k >= 0; k--) {
+    const bubble = SPAWNED[k];
+    const age = time - bubble.born;
+    if (age > SPAWN_LIFE || age < 0) {
+      SPAWNED.splice(k, 1);
+      continue;
+    }
+    const size = bubble.scale * span;
+    const drift = SPAWN_DRIFT * span * age;
+    const wobble = Math.sin(age * 1.7 + bubble.seed) * 0.006 * span;
+    const x = bubble.x + LANE_RIGHT[0] * drift + LANE_BACK[0] * wobble;
+    const z = bubble.z + LANE_RIGHT[1] * drift + LANE_BACK[1] * wobble;
+    // Rise steadily from where it started, but never through a roof it
+    // drifts over.
+    const floor = groundUnder(x, z, size, span) + size + 0.004 * span;
+    const start = bubble.y === null ? floor : bubble.y;
+    const y = Math.max(start + SPAWN_RISE * span * age, floor);
+    items.push({
+      object: sphere,
+      position: [x, y, z],
+      model: multiply(translation(x, y, z), scaling(size, size, size)),
+    });
+  }
+  return items;
+}
+
 function drawSky(time, eye) {
   const span = state.span;
   const placed = SKY_OBJECTS
     .map((object) => placeSkyObject(object, time, span))
     .filter(Boolean);
+  if (MODES[state.mode].clickBubbles) placed.push(...placeSpawned(time, span));
 
   // Solid objects (clouds, butterflies) first, like the landscape.
   placed.filter((item) => !item.object.bubble).forEach(drawSkyObject);
+
+  // The rainbow is see-through too, but sits far behind every bubble.
+  if (MODES[state.mode].rainbow) drawRainbow(eye);
 
   // Then the bubbles, which are see-through. Blending mixes each bubble with
   // whatever is already drawn behind it, so they go last, farthest first.
@@ -1300,13 +1506,26 @@ const TURBINE_HEIGHT = 0.15;            // tower height, as a fraction of the te
 const TURBINE_FACING = 0.69;            // radians: rotor turned toward the default camera
 const TURBINE_SPIN = 0.45;              // radians per second: a slow, lazy turn
 
-// Spots in the city map's layout (0..1 across the island, as in
-// tools/make-city-maps.mjs): a row along the far edge, right of the city,
-// clear of the roads and the bubbles' lanes across the front.
-const TURBINES = [
-  { u: 0.79, v: 0.06, offset: 0.0 },
-  { u: 0.96, v: 0.05, offset: 0.7 },
-];
+// Spots in the city map's layout (0..1 across the middle square, as in
+// tools/make-city-maps.mjs). On the island: a row along the far edge, right
+// of the city, clear of the roads and the bubbles' lanes across the front.
+// In the metro the city covers those, so they stand out in the countryside
+// to the right instead (the map script keeps houses off the same spots).
+const TURBINES = {
+  island: [
+    { u: 0.79, v: 0.06, offset: 0.0 },
+    { u: 0.96, v: 0.05, offset: 0.7 },
+  ],
+  metro: [
+    { u: 1.5, v: 0.78, offset: 0.0 },
+    { u: 1.62, v: 0.98, offset: 0.7 },
+    { u: 1.5, v: 1.18, offset: 1.6 },
+  ],
+};
+
+function currentTurbines() {
+  return TURBINES[MODES[state.mode].mapSet ?? 'island'];
+}
 
 function uploadCluster(cubes) {
   const built = buildCluster(cubes);
@@ -1322,17 +1541,18 @@ const TURBINE_BLADE = uploadCluster(TURBINE_BLADE_CUBES);
 // Where a turbine stands, in world units: the layout spot scaled like the
 // landscape, on top of the tallest ground right around it.
 function turbineBase(turbine) {
+  const map = currentMap();
   const span = state.span;
-  const low = 0.5 - CITY_EXTENT / 2;
+  const low = 0.5 - map.extent / 2;
   const shortest = span * 0.012;
   const tallest = span * IMAGE_HEIGHT_RATIO;
 
   let brightness = 0;
   for (const du of [-0.012, 0, 0.012]) {
     for (const dv of [-0.012, 0, 0.012]) {
-      const u = (turbine.u + du - low) / CITY_EXTENT;
-      const v = 1 - (turbine.v + dv - low) / CITY_EXTENT;
-      brightness = Math.max(brightness, sampleChannel(IMAGE_MAP.height, u, v, 0));
+      const u = (turbine.u + du - low) / map.extent;
+      const v = 1 - (turbine.v + dv - low) / map.extent;
+      brightness = Math.max(brightness, sampleChannel(map.height, u, v, 0));
     }
   }
 
@@ -1346,7 +1566,7 @@ function turbineBase(turbine) {
 function drawTurbines(time) {
   const size = state.span * TURBINE_HEIGHT;
 
-  for (const turbine of TURBINES) {
+  for (const turbine of currentTurbines()) {
     const [x, y, z] = turbineBase(turbine);
     const base = multiply(
       translation(x, y, z),
@@ -1405,6 +1625,22 @@ const MODES = {
     maps: true,
     sky: true,
   },
+  // Level 4: Level 3's sky over a whole city instead of an island, with a
+  // haze toward the horizon, a rainbow, a camera you steer with the mouse,
+  // and bubbles you click into the scene.
+  '4': {
+    tagline: '',
+    animated: true,
+    heights: true,
+    colors: 'image',
+    maps: true,
+    sky: true,
+    mapSet: 'metro',
+    haze: true,
+    rainbow: true,
+    freeCamera: true,
+    clickBubbles: true,
+  },
 };
 
 const UNIT_MODES = ['0', '1a'];
@@ -1413,8 +1649,12 @@ const state = {
   mode: '3',
   unit: '0',          // which of the Units tab's two levels was last shown
   orbit: false,       // Level 1d: the camera circles the scene, on any tab
+  orbitAngle: 0,      // how far round it has gone; kept when the orbit pauses
   noise: false,       // the terrain on screen was built from fBm noise
   zoom: 1,            // 1 = the normal field of view; higher is closer in
+  // Level 4's steered camera: turned (yaw), tilted (pitch) and slid across
+  // the ground (pan, in fractions of the terrain width).
+  view: { yaw: 0, pitch: 0, pan: [0, 0] },
   n: 64,
   vertexCount: 0,
   span: 64,
@@ -1461,6 +1701,10 @@ const uModel = gl.getUniformLocation(program, 'uModel');
 const uCameraPosition = gl.getUniformLocation(program, 'uCameraPosition');
 const uShine = gl.getUniformLocation(program, 'uShine');
 const uBubble = gl.getUniformLocation(program, 'uBubble');
+const uRainbow = gl.getUniformLocation(program, 'uRainbow');
+const uHaze = gl.getUniformLocation(program, 'uHaze');
+const uHazeRange = gl.getUniformLocation(program, 'uHazeRange');
+const uCanvasHeight = gl.getUniformLocation(program, 'uCanvasHeight');
 
 const IDENTITY = [
   1, 0, 0, 0,
@@ -1502,26 +1746,50 @@ function cameraFor(time) {
     camera = { eye: [10, 5.3, 8.7], target: [0, 1, 0], near: 0.1, far: 80 };
   }
 
-  if (state.orbit) {
-    // 1d — swing the still camera around the point it looks at: one angle
-    // that grows with time turns the eye around a circle at the same height
-    // and distance, so every tab orbits from exactly its usual view. On the
-    // landscape, whenever the camera lines up with a corner, that corner
-    // just touches the bottom of the screen.
-    const angle = time * ORBIT_SPEED;
-    const [x, y, z] = camera.eye;
-    const [tx, , tz] = camera.target;
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
+  const free = Boolean(MODES[state.mode].freeCamera);
+  if (free) {
+    // Level 4 starts flatter and aimed a little higher, so the horizon,
+    // the sky and the rainbow are in view above the city.
+    camera.eye = [span * 0.97 * zoom, span * 0.5 * zoom, span * 1.17 * zoom];
+    camera.target = [0, span * 0.15, 0];
+  }
+
+  if (state.orbitAngle || free) {
+    // Describe the eye by where it sits around the target: an angle around
+    // (yaw), an angle above the ground (elevation) and a distance. Then
+    // 1d's orbit turns it around at the same height and distance, so every
+    // tab orbits from exactly its usual view (on the landscape, whenever the
+    // camera lines up with a corner, that corner just touches the bottom of
+    // the screen), and Level 4's mouse turns, tilts and slides it. The orbit
+    // angle stays put while paused, so the view holds where it stopped.
+    const yaw = state.orbitAngle + (free ? state.view.yaw : 0);
+    const pitch = free ? state.view.pitch : 0;
+    const pan = free ? state.view.pan : [0, 0];
+
+    const [tx, ty, tz] = camera.target;
+    const dx = camera.eye[0] - tx;
+    const dy = camera.eye[1] - ty;
+    const dz = camera.eye[2] - tz;
+    const distance = Math.hypot(dx, dy, dz);
+    const around = Math.atan2(dx, dz) + yaw;
+    const up = Math.min(Math.max(Math.asin(dy / distance) + pitch, MIN_TILT), MAX_TILT);
+
+    const target = [tx + pan[0] * span, ty, tz + pan[1] * span];
+    camera.target = target;
     camera.eye = [
-      tx + (x - tx) * c - (z - tz) * s,
-      y,
-      tz + (x - tx) * s + (z - tz) * c,
+      target[0] + Math.sin(around) * Math.cos(up) * distance,
+      target[1] + Math.sin(up) * distance,
+      target[2] + Math.cos(around) * Math.cos(up) * distance,
     ];
   }
 
   return camera;
 }
+
+// How far Level 4's camera can tilt: from just above the rooftops to almost
+// straight down.
+const MIN_TILT = 0.03;
+const MAX_TILT = 1.45;
 
 // Anything that changes over time needs the animation loop: the sky, or
 // the orbiting camera.
@@ -1549,20 +1817,23 @@ function draw(time) {
   const aspect = canvas.width / canvas.height;
   const camera = cameraFor(time, aspect);
 
-  // The city levels clear to transparent, so the CSS sky behind the canvas
-  // shows through; the other levels keep the dark background.
+  // Every level clears to transparent, so the CSS sky behind the canvas
+  // shows through. Only the city levels get the glossy shine.
   const city = Boolean(MODES[state.mode].maps);
-  if (city) {
-    gl.clearColor(0, 0, 0, 0);
-  } else {
-    gl.clearColor(0.02, 0.03, 0.05, 1);
-  }
+  gl.clearColor(0, 0, 0, 0);
   gl.enable(gl.DEPTH_TEST);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   gl.uniform3fv(uCameraPosition, camera.eye);
   gl.uniform1f(uShine, city ? 1 : 0);
   gl.uniform1f(uBubble, 0);
+  gl.uniform1f(uRainbow, 0);
+  // Level 4's haze: everything starts fading into the sky a couple of
+  // terrain widths away and is gone by about four.
+  gl.uniform1f(uHaze, MODES[state.mode].haze ? 1 : 0);
+  gl.uniform2f(uHazeRange, state.span * 2.2, state.span * 4.2);
+  gl.uniform1f(uCanvasHeight, canvas.height);
+  lastDrawTime = time;
 
   // Zoom is a narrower field of view, like a lens: the camera stays where it
   // is, so zooming can never push it inside the terrain.
@@ -1585,7 +1856,7 @@ function draw(time) {
   gl.drawArrays(gl.TRIANGLES, 0, state.vertexCount);
 
   // The turbines stand on the image's ground, so they wait for the maps.
-  if (city && IMAGE_MAP.status === 'ready') drawTurbines(time);
+  if (city && currentMap().status === 'ready') drawTurbines(time);
 
   if (MODES[state.mode].sky) drawSky(time, camera.eye);
 }
@@ -1596,8 +1867,10 @@ function draw(time) {
 
 let rafId = 0;
 let modeStart = 0;
-let frames = 0;
-let fpsWindowStart = 0;
+let lastDrawTime = 0;   // the scene's clock at the last frame, for clicks
+let lastFrame = 0;      // when the last frame was drawn, in milliseconds
+let frameTime = 0;      // smoothed time between frames, in milliseconds
+let statusShown = 0;    // when the status line last showed a new fps
 let fps = 0;
 
 // "fractional Brownian noise" in the status line links to a definition.
@@ -1614,10 +1887,11 @@ const FBM_LINK = (() => {
 function updateStatus() {
   // Only the parts that apply, joined with dots, so nothing leaves a dot
   // hanging on its own (a still camera has no fps, an image level no noise).
+  // fps is always there; with nothing moving it shows a dash.
   const parts = [
     `${state.buildMs} ms to build`,
     state.noise ? FBM_LINK : '',
-    isAnimated() ? `${fps || '—'} fps` : '',
+    `${isAnimated() && fps ? fps : '—'} fps`,
   ].filter(Boolean);
 
   statusEl.replaceChildren(...parts.flatMap((part, i) => (i === 0 ? [part] : [' · ', part])));
@@ -1630,6 +1904,10 @@ function rebuild() {
   // Whether the heights on screen come from the fBm noise (heightField),
   // for the status line.
   state.noise = false;
+
+  // Clicked-in bubbles sit at world positions, which no longer match once
+  // the landscape changes, so they go.
+  SPAWNED.length = 0;
 
   if (state.mode === '0') {
     built = buildSingleCube();
@@ -1658,17 +1936,26 @@ function rebuild() {
 function loop(now) {
   if (!modeStart) {
     modeStart = now;
-    fpsWindowStart = now;
-    frames = 0;
+    lastFrame = now;
+    statusShown = now;
   }
+
+  // Level 1d's orbit: turn a little further each frame, by however long the
+  // frame took. The angle lives in state, so pausing keeps it where it is.
+  const seconds = (now - lastFrame) / 1000;
+  if (state.orbit) state.orbitAngle += ORBIT_SPEED * seconds;
 
   draw((now - modeStart) / 1000);
 
-  frames++;
-  if (now - fpsWindowStart >= 500) {
-    fps = Math.round((frames * 1000) / (now - fpsWindowStart));
-    frames = 0;
-    fpsWindowStart = now;
+  // fps from the time between frames, smoothed, rather than counting frames
+  // in short windows: a half-second window holds either 30 or 31 frames at
+  // 60 Hz, which made the readout flick between 60 and 62.
+  const gap = now - lastFrame;
+  if (gap > 0) frameTime = frameTime ? frameTime * 0.92 + gap * 0.08 : gap;
+  lastFrame = now;
+  if (now - statusShown >= 500 && frameTime) {
+    fps = Math.round(1000 / frameTime);
+    statusShown = now;
     updateStatus();
   }
 
@@ -1679,7 +1966,7 @@ function restartRendering() {
   cancelAnimationFrame(rafId);
   rafId = 0;
   modeStart = 0;
-  frames = 0;
+  frameTime = 0;
   fps = 0;
 
   if (isAnimated()) {
@@ -1710,9 +1997,12 @@ function applyMode(mode) {
 
   taglineEl.textContent = MODES[mode].tagline;
   // A single cube has no grid resolution: the bar stays put but greys out.
+  // Level 4's metro is capped, so the sizes above its cap grey out too and
+  // the one it actually builds at is lit.
   resButtons.forEach((button) => {
-    button.disabled = mode === '0';
+    button.disabled = mode === '0' || Number(button.dataset.n) > currentMap().maxN;
   });
+  markResolution(gridSize(state.n));
 
   rebuild();
   restartRendering();
@@ -1722,7 +2012,15 @@ function applyMode(mode) {
 function applyOrbit(on) {
   state.orbit = on;
   orbitButton.setAttribute('aria-pressed', String(on));
-  restartRendering();   // starts (or stops) the loop, from the usual view
+  const label = on ? 'Pause the orbit' : 'Orbit: circle the camera around the scene';
+  orbitButton.setAttribute('aria-label', label);
+  orbitButton.title = label;
+
+  // A level that animates anyway keeps its loop (and its clouds' clock)
+  // running; the orbit just starts or stops adding to its angle. A still
+  // level needs the loop started, or stopped and redrawn once, where the
+  // orbit stopped.
+  if (!MODES[state.mode].animated) restartRendering();
   updateStatus();
 }
 
@@ -1734,7 +2032,7 @@ function markResolution(n) {
 
 function applyResolution(n) {
   state.n = n;
-  markResolution(n);
+  markResolution(gridSize(n));
   rebuild();
   restartRendering();
   updateStatus();
@@ -1751,6 +2049,17 @@ unitButtons.forEach((button) => {
 });
 
 orbitButton.addEventListener('click', () => applyOrbit(!state.orbit));
+
+// Dock: tuck the info row away to give the scene more room. The canvas
+// grows, so a still scene has to be drawn again at its new size.
+dockButton.addEventListener('click', () => {
+  const docked = headerEl.classList.toggle('docked');
+  dockButton.setAttribute('aria-pressed', String(docked));
+  const label = docked ? 'Show the bar' : 'Hide the bar';
+  dockButton.setAttribute('aria-label', label);
+  dockButton.title = label;
+  if (!isAnimated()) draw(0);
+});
 
 resButtons.forEach((button) => {
   button.addEventListener('click', () => applyResolution(Number(button.dataset.n)));
@@ -1783,7 +2092,141 @@ canvas.addEventListener('wheel', (event) => {
   setZoom(state.zoom * Math.exp(-event.deltaY * 0.0015));
 }, { passive: false });
 
-canvas.addEventListener('dblclick', () => setZoom(1));
+canvas.addEventListener('dblclick', () => {
+  // Back to the usual view: normal zoom, no orbit turn, and on Level 4 the
+  // steered camera put back where it started.
+  state.orbitAngle = 0;
+  state.view = { yaw: 0, pitch: 0, pan: [0, 0] };
+  setZoom(1);
+  if (!isAnimated()) draw(0);
+});
+
+/* Level 4's mouse: left-drag turns and tilts the camera, right-drag (or
+   Shift-drag) slides it across the city, and a click that doesn't drag
+   drops a bubble on the ground under the pointer. */
+const DRAG_THRESHOLD = 5;       // pixels before a press counts as a drag
+const TURN_SPEED = 0.006;       // radians per pixel
+const PAN_SPEED = 0.0016;       // terrain widths per pixel, scaled by distance
+
+let drag = null;
+
+// The camera's tilt above the ground before any of the mouse's tilting.
+function startingTilt() {
+  const saved = state.view.pitch;
+  state.view.pitch = 0;
+  const camera = cameraFor(lastDrawTime);
+  state.view.pitch = saved;
+  const d = camera.eye.map((c, i) => c - camera.target[i]);
+  return Math.asin(d[1] / Math.hypot(...d));
+}
+
+canvas.addEventListener('contextmenu', (event) => {
+  if (MODES[state.mode].freeCamera) event.preventDefault();
+});
+
+canvas.addEventListener('pointerdown', (event) => {
+  if (!MODES[state.mode].freeCamera) return;
+  drag = {
+    x: event.clientX,
+    y: event.clientY,
+    pan: event.button === 2 || event.shiftKey,
+    moved: false,
+  };
+  // Keep receiving moves even if the pointer leaves the canvas mid-drag.
+  try { canvas.setPointerCapture(event.pointerId); } catch { /* not a real pointer */ }
+});
+
+canvas.addEventListener('pointermove', (event) => {
+  if (!drag) return;
+  const dx = event.clientX - drag.x;
+  const dy = event.clientY - drag.y;
+  if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+  drag.moved = true;
+  drag.x = event.clientX;
+  drag.y = event.clientY;
+
+  const view = state.view;
+  if (drag.pan) {
+    // Slide along the ground: screen-right and screen-up become the
+    // camera's right and forward directions, flattened onto the ground.
+    const camera = cameraFor(lastDrawTime);
+    const fx = camera.target[0] - camera.eye[0];
+    const fz = camera.target[2] - camera.eye[2];
+    const length = Math.hypot(fx, fz) || 1;
+    const forward = [fx / length, fz / length];
+    const right = [-forward[1], forward[0]];
+    const step = PAN_SPEED * state.zoom ** -1;
+    view.pan[0] += (-right[0] * dx + forward[0] * dy) * step;
+    view.pan[1] += (-right[1] * dx + forward[1] * dy) * step;
+    // Keep the camera over the metro.
+    const limit = currentMap().extent * 0.5;
+    view.pan = view.pan.map((p) => Math.min(Math.max(p, -limit), limit));
+  } else {
+    view.yaw -= dx * TURN_SPEED;
+    // Tilt, but only as far as the limits allow, measured from the starting
+    // tilt, so dragging past a limit stops there instead of piling up.
+    const start = startingTilt();
+    view.pitch = Math.min(
+      Math.max(view.pitch + dy * TURN_SPEED, MIN_TILT - start),
+      MAX_TILT - start,
+    );
+  }
+});
+
+canvas.addEventListener('pointerup', (event) => {
+  if (!drag) return;
+  const clicked = !drag.moved && !drag.pan;
+  drag = null;
+  if (clicked && MODES[state.mode].clickBubbles) dropBubbleAt(event);
+});
+
+canvas.addEventListener('pointercancel', () => { drag = null; });
+
+// Find the ground under the pointer: a ray from the camera through that
+// pixel, met with the ground. The ground isn't flat, so meet a flat plane
+// first, read the cube height there, and meet that height again a few times.
+function dropBubbleAt(event) {
+  const rect = canvas.getBoundingClientRect();
+  const nx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  const ny = 1 - ((event.clientY - rect.top) / rect.height) * 2;
+
+  const camera = cameraFor(lastDrawTime);
+  const eye = camera.eye;
+  const f = camera.target.map((c, i) => c - eye[i]);
+  const fl = Math.hypot(...f);
+  const forward = f.map((c) => c / fl);
+  const rightRaw = [-forward[2], 0, forward[0]];        // forward × up
+  const rl = Math.hypot(...rightRaw);
+  const right = rightRaw.map((c) => c / rl);
+  const up = [
+    right[1] * forward[2] - right[2] * forward[1],
+    right[2] * forward[0] - right[0] * forward[2],
+    right[0] * forward[1] - right[1] * forward[0],
+  ];
+  const tanY = Math.tan(BASE_FIELD_OF_VIEW / state.zoom / 2);
+  const aspect = rect.width / rect.height;
+  const dir = forward.map((c, i) => c + right[i] * nx * tanY * aspect + up[i] * ny * tanY);
+
+  // Clicked the sky: the ray never meets the ground, so put the bubble out
+  // in the air along it, as far away as the middle of the scene.
+  if (dir[1] >= 0) {
+    const length = Math.hypot(...dir);
+    const point = dir.map((c, i) => eye[i] + (c / length) * fl);
+    spawnBubble(point[0], point[2], lastDrawTime, point[1]);
+    return;
+  }
+
+  let height = 0;
+  let x = 0;
+  let z = 0;
+  for (let step = 0; step < 4; step++) {
+    const t = (height - eye[1]) / dir[1];
+    x = eye[0] + dir[0] * t;
+    z = eye[2] + dir[2] * t;
+    height = groundUnder(x, z, 0.5, state.span);
+  }
+  spawnBubble(x, z, lastDrawTime);
+}
 zoomInButton.addEventListener('click', () => setZoom(state.zoom * ZOOM_STEP));
 zoomOutButton.addEventListener('click', () => setZoom(state.zoom / ZOOM_STEP));
 zoomResetButton.addEventListener('click', () => setZoom(1));

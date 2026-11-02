@@ -7,30 +7,143 @@
   <style>
     * { box-sizing: border-box; }
 
-    html, body { margin: 0; height: 100%; background: #000; }
+    /* Frutiger Aero: dark glossy glass for the bar, glossy pill buttons in
+       white and sky blue, lime green for whatever is switched on. */
+    :root {
+      --glass-top: #1d5a93;
+      --glass-bottom: #0a2647;
+      --edge: #59d0ff;                 /* the bright line under the bar */
+      --text: #ffffff;
+      --text-soft: #b9dcf7;
+      --text-dim: #8fbde0;
+      --ink: #0b3a66;                  /* text on the glossy white buttons */
+      --pill: linear-gradient(to bottom, #ffffff 0%, #eaf7ff 46%, #c8e9fb 50%, #e4f6ff 100%);
+      --pill-border: #6aa6d1;
+      --lime: linear-gradient(to bottom, #f4ffdc 0%, #cdf27f 46%, #93d83c 50%, #bcee6c 100%);
+      --lime-border: #4f9a1f;
+      --lime-ink: #1d4705;
+      --focus: #ffe36b;
+      --font: "Segoe UI", Frutiger, "Frutiger Linotype", "Myriad Pro", Tahoma, system-ui, sans-serif;
+
+      /* Cursors in glossy aqua glass, drawn as tiny inline SVGs: an arrow
+         with a sky inside (white at the top to deep blue, a few clouds, a
+         gloss across the top and a white inner edge), and a pointing hand
+         in the same glass for anything you can click. The numbers after
+         each are the hotspot: the arrow's tip and the hand's fingertip. */
+      --cursor-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='sky' x1='0' y1='0' x2='0.4' y2='1'%3E%3Cstop offset='0' stop-color='%23f2fdff'/%3E%3Cstop offset='0.4' stop-color='%2388def7'/%3E%3Cstop offset='1' stop-color='%231b86d4'/%3E%3C/linearGradient%3E%3ClinearGradient id='gloss' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='white' stop-opacity='0.95'/%3E%3Cstop offset='1' stop-color='white' stop-opacity='0'/%3E%3C/linearGradient%3E%3CclipPath id='shape'%3E%3Cpath d='M3 2 V25 L9 19.5 L13 28 L17 26.3 L13 18 H21 Z'/%3E%3C/clipPath%3E%3C/defs%3E%3Cpath d='M3 2 V25 L9 19.5 L13 28 L17 26.3 L13 18 H21 Z' fill='url(%23sky)'/%3E%3Cg clip-path='url(%23shape)'%3E%3Cellipse cx='7' cy='20' rx='5' ry='2.2' fill='white' opacity='0.9'/%3E%3Cellipse cx='11' cy='18.6' rx='3.6' ry='2.4' fill='white' opacity='0.9'/%3E%3Cellipse cx='15' cy='22.5' rx='3.4' ry='1.6' fill='white' opacity='0.7'/%3E%3Cpath d='M3 2 L15 14 H3 Z' fill='url(%23gloss)'/%3E%3C/g%3E%3Cpath d='M3 2 V25 L9 19.5 L13 28 L17 26.3 L13 18 H21 Z' fill='none' stroke='%23136aad' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M4.3 5.2 V22 L9.4 17.3 L13.5 26.2 L15.4 25.4 L11.2 16.6 H17.8 Z' fill='none' stroke='white' stroke-opacity='0.85' stroke-width='0.8' stroke-linejoin='round'/%3E%3C/svg%3E") 3 2, default;
+      --cursor-hand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='sky' x1='0' y1='0' x2='0.4' y2='1'%3E%3Cstop offset='0' stop-color='%23f2fdff'/%3E%3Cstop offset='0.4' stop-color='%2388def7'/%3E%3Cstop offset='1' stop-color='%231b86d4'/%3E%3C/linearGradient%3E%3ClinearGradient id='gloss' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='white' stop-opacity='0.95'/%3E%3Cstop offset='1' stop-color='white' stop-opacity='0'/%3E%3C/linearGradient%3E%3CclipPath id='shape'%3E%3Cpath d='M10 4.5 C10 2.5 14 2.5 14 4.5 L14 12 C14 10 18 10 18 12 L18 13 C18 11 22 11 22 13 L22 14.5 C22 12.6 25.5 12.6 25.5 14.5 L25.5 21 C25.5 25 23.5 28.5 20 29.5 L13.5 29.5 C11.5 28.5 9.5 26 8 23.5 L4.6 18 C3.6 16.3 5.8 14.6 7.2 16 L10 19 Z'/%3E%3C/clipPath%3E%3C/defs%3E%3Cpath d='M10 4.5 C10 2.5 14 2.5 14 4.5 L14 12 C14 10 18 10 18 12 L18 13 C18 11 22 11 22 13 L22 14.5 C22 12.6 25.5 12.6 25.5 14.5 L25.5 21 C25.5 25 23.5 28.5 20 29.5 L13.5 29.5 C11.5 28.5 9.5 26 8 23.5 L4.6 18 C3.6 16.3 5.8 14.6 7.2 16 L10 19 Z' fill='url(%23sky)'/%3E%3Cg clip-path='url(%23shape)'%3E%3Cellipse cx='15' cy='23' rx='6' ry='2.4' fill='white' opacity='0.9'/%3E%3Cellipse cx='19.5' cy='21.4' rx='4' ry='2.6' fill='white' opacity='0.9'/%3E%3Cellipse cx='12' cy='26.5' rx='3.6' ry='1.6' fill='white' opacity='0.7'/%3E%3Cpath d='M2 2 H28 V14 C20 12 12 14 2 18 Z' fill='url(%23gloss)'/%3E%3C/g%3E%3Cpath d='M10 4.5 C10 2.5 14 2.5 14 4.5 L14 12 C14 10 18 10 18 12 L18 13 C18 11 22 11 22 13 L22 14.5 C22 12.6 25.5 12.6 25.5 14.5 L25.5 21 C25.5 25 23.5 28.5 20 29.5 L13.5 29.5 C11.5 28.5 9.5 26 8 23.5 L4.6 18 C3.6 16.3 5.8 14.6 7.2 16 L10 19 Z' fill='none' stroke='%23136aad' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M14 12 V17 M18 13 V17.5 M22 14.5 V18' stroke='%23136aad' stroke-width='1.1' stroke-linecap='round'/%3E%3Cpath d='M11.2 5 V18.5 M15 13 V15.5' fill='none' stroke='white' stroke-opacity='0.85' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E") 12 3, pointer;
+    }
+
+    html, body { margin: 0; height: 100%; background: #0a2647; }
+
+    html { cursor: var(--cursor-arrow); }
+
+    button:not(:disabled),
+    summary,
+    a {
+      cursor: var(--cursor-hand) !important;
+    }
+
+    /* Buttons don't inherit the cursor, so a disabled one needs the arrow
+       set on it directly. */
+    button:disabled { cursor: var(--cursor-arrow); }
 
     body {
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      color: #e9edf2;
-      font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      font: 14px/1.45 var(--font);
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ---------- header bar ---------- */
+    /* ---------- glossy pill buttons, shared by every control ---------- */
+
+    .levels button,
+    .res button,
+    .zoom button {
+      appearance: none;
+      border: 1px solid var(--pill-border);
+      border-radius: 999px;
+      background: var(--pill);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 1px 2px rgba(0, 30, 70, 0.35);
+      transition: box-shadow 0.15s, border-color 0.15s, filter 0.15s;
+    }
+
+    .levels button:hover:not(:disabled),
+    .res button:hover:not(:disabled),
+    .zoom button:hover:not(:disabled) {
+      border-color: #2f8fd8;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 0 0 2px rgba(89, 208, 255, 0.45),
+        0 0 10px rgba(89, 208, 255, 0.7);
+    }
+
+    .levels button:active:not(:disabled),
+    .res button:active:not(:disabled),
+    .zoom button:active:not(:disabled) {
+      filter: brightness(0.94);
+    }
+
+    /* On: lime green, like the old Start button. */
+    .levels button[aria-current],
+    .res button[aria-pressed="true"],
+    .zoom button[aria-pressed="true"] {
+      border-color: var(--lime-border);
+      background: var(--lime);
+      color: var(--lime-ink);
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    .levels button:disabled,
+    .res button:disabled,
+    .zoom button:disabled {
+      filter: grayscale(1);
+      opacity: 0.45;
+    }
+
+    .levels button:focus-visible,
+    .res button:focus-visible,
+    .zoom button:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    /* ---------- header bar: dark Aero glass ---------- */
 
     header {
       position: relative;
       z-index: 10;
       flex: none;
       padding: 12px 24px 10px;
-      background: #0b0d10;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(to bottom, var(--glass-top) 0%, #123f6f 48%, var(--glass-bottom) 100%);
+      border-bottom: 2px solid var(--edge);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 0 14px rgba(89, 208, 255, 0.55),
+        0 6px 18px rgba(0, 25, 60, 0.45);
       user-select: none;
     }
 
+    /* The gloss: a soft white sheen over the top half of the bar. */
+    header::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 52% 0;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
+      pointer-events: none;
+    }
+
     .bar-top {
+      position: relative;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
@@ -38,35 +151,123 @@
     }
 
     .eyebrow {
-      margin: 0 0 4px;
+      margin: 0 0 2px;
       font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
+      font-weight: 700;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: #98a2b3;
+      color: #a6ec5c;
     }
 
     h1 {
       margin: 0;
       font-size: 28px;
       line-height: 1.15;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: -0.01em;
+      color: var(--text);
+      text-shadow:
+        0 1px 0 rgba(0, 20, 50, 0.6),
+        0 0 12px rgba(89, 208, 255, 0.6);
     }
 
     .byline {
-      margin: 2px 0 0;
-      color: #98a2b3;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 4px 0 0;
+      color: var(--text-soft);
       font-size: 14px;
     }
+
+    .avatar {
+      width: 22px;
+      height: 22px;
+      flex: none;
+      filter: drop-shadow(0 1px 2px rgba(0, 20, 50, 0.6));
+    }
+
+    .bar-actions {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    /* The dock toggle: a glossy two-tone capsule, like a pill, aqua on one
+       half and white on the other, in the middle of the info row on the bar
+       itself. Pressed, it hides the whole bar; then it's the only thing
+       left, just under the top of the screen, ready to bring the bar back. */
+    .dock-toggle {
+      appearance: none;
+      position: absolute;
+      left: 50%;
+      bottom: 12px;
+      transform: translateX(-50%);
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      width: 46px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid var(--pill-border);
+      border-radius: 999px;
+      background:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.2) 46%, rgba(255, 255, 255, 0) 50%, rgba(255, 255, 255, 0.12) 100%),
+        linear-gradient(to right, #4fc4ee 0 50%, #f2fbff 50% 100%);
+      color: var(--ink);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 1px 2px rgba(0, 30, 70, 0.35);
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+
+    .dock-toggle svg {
+      width: 13px;
+      height: 13px;
+      transition: transform 0.2s;
+      filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8));
+    }
+
+    .dock-toggle:hover {
+      border-color: #2f8fd8;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 0 0 2px rgba(89, 208, 255, 0.45),
+        0 0 10px rgba(89, 208, 255, 0.7);
+    }
+
+    .dock-toggle:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    /* Docked: no bar at all, just the toggle floating at the top. */
+    header.docked {
+      padding: 0;
+      border-bottom: 0;
+      background: none;
+      box-shadow: none;
+    }
+
+    header.docked::before { display: none; }
+
+    header.docked > :not(.dock-toggle) { display: none; }
+
+    header.docked .dock-toggle {
+      top: 8px;
+      bottom: auto;
+    }
+
+    header.docked .dock-toggle svg { transform: rotate(180deg); }
 
     /* Level strip: grows with the assignment, anchored to the right edge so
        it never shifts when the title text changes. */
     .levels {
       display: flex;
       flex: none;
-      gap: 4px;
-      padding-top: 4px;
+      gap: 6px;
+      padding: 4px 2px 6px;
       overflow-x: auto;
       scrollbar-width: none;
     }
@@ -74,62 +275,37 @@
     .levels::-webkit-scrollbar { display: none; }
 
     .levels button {
-      appearance: none;
-      min-width: 34px;
-      padding: 6px 10px;
-      border: 1px solid transparent;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.04);
-      color: #c3cbd6;
-      font: inherit;
+      min-width: 40px;
+      padding: 6px 14px;
       font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-    }
-
-    .levels button:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.09);
-      color: #fff;
-    }
-
-    .levels button:focus-visible {
-      outline: 2px solid #4cc2ff;
-      outline-offset: 2px;
-    }
-
-    .levels button[aria-current] {
-      background: rgba(76, 194, 255, 0.14);
-      border-color: rgba(76, 194, 255, 0.4);
-      color: #cfeaff;
-      font-weight: 600;
-    }
-
-    .levels button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
     }
 
     /* ---------- info row ---------- */
 
     .bar-info {
+      position: relative;
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 8px 16px;
       margin-top: 8px;
       padding-top: 8px;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
     }
 
     .tagline {
       margin: 0;
-      color: #d5dbe4;
+      color: #e3f3ff;
       font-size: 13px;
     }
 
+    /* With no tagline text, drop it from the row entirely: otherwise its
+       empty slot plus the row's gap pushes the grid controls inward. */
+    .tagline:empty { display: none; }
+
     .meta {
       margin: 0 0 0 auto;
-      color: #7f8b9c;
+      color: var(--text-dim);
       font-size: 12px;
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.02em;
@@ -143,59 +319,33 @@
     }
 
     .meta a:focus-visible {
-      outline: 2px solid currentColor;
+      outline: 2px solid var(--focus);
       outline-offset: 2px;
       border-radius: 2px;
     }
 
-    /* Grid resolution picker: same pill language as the level tabs. */
+    /* Grid resolution picker: smaller pills in the same style as the tabs. */
     .res {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
     }
 
     .res[hidden] { display: none; }
 
     .res-label {
       margin-right: 2px;
-      color: #7f8b9c;
+      color: var(--text-dim);
       font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
+      font-weight: 700;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
     }
 
     .res button {
-      appearance: none;
-      min-width: 40px;
-      padding: 3px 7px;
-      border: 1px solid transparent;
-      border-radius: 5px;
-      background: rgba(255, 255, 255, 0.04);
-      color: #c3cbd6;
-      font: inherit;
+      min-width: 42px;
+      padding: 2px 9px;
       font-size: 12px;
-      font-variant-numeric: tabular-nums;
-      cursor: pointer;
-    }
-
-    .res button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.09); color: #fff; }
-
-    .res button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    .res button[aria-pressed="true"] {
-      background: rgba(76, 194, 255, 0.14);
-      border-color: rgba(76, 194, 255, 0.4);
-      color: #cfeaff;
-    }
-
-    .res button:focus-visible {
-      outline: 2px solid #4cc2ff;
-      outline-offset: 2px;
     }
 
     /* About is a <details> so the toggle needs no JavaScript. Its card is
@@ -206,29 +356,32 @@
     .about summary {
       padding: 4px 2px;
       border-radius: 4px;
-      color: #9fb0c4;
+      color: var(--text-soft);
       font-size: 13px;
+      font-weight: 600;
       white-space: nowrap;
-      cursor: pointer;
       list-style: none;
     }
+
+    .about summary:hover { color: var(--text); text-shadow: 0 0 8px rgba(89, 208, 255, 0.8); }
 
     .about summary::-webkit-details-marker { display: none; }
 
     .about summary::after { content: " \25BE"; font-size: 10px; }
 
-    .about[open] summary { color: #fff; }
+    .about[open] summary { color: var(--text); }
 
     .about[open] summary::after { content: " \25B4"; }
 
     .about summary:focus-visible {
-      outline: 2px solid #4cc2ff;
+      outline: 2px solid var(--focus);
       outline-offset: 2px;
     }
 
+    /* A frosted white panel, like an old Aero window, under the dark bar. */
     .about-card {
       position: absolute;
-      top: 100%;
+      top: calc(100% + 2px);
       left: 0;
       right: 0;
       display: grid;
@@ -237,25 +390,35 @@
       max-height: 70vh;
       overflow-y: auto;
       padding: 18px 24px 20px;
-      background: #0f1217;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.55);
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.97), rgba(228, 245, 255, 0.95));
+      backdrop-filter: blur(10px);
+      border-bottom: 2px solid var(--edge);
+      box-shadow:
+        inset 0 1px 0 #ffffff,
+        0 16px 32px rgba(0, 30, 70, 0.4);
     }
 
     .about-card h2 {
       margin: 0 0 3px;
       font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
+      font-weight: 700;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: #8ea1b8;
+      color: #1e78c2;
     }
 
     .about-card p {
       margin: 0;
-      color: #c3cbd6;
+      color: #173a5c;
       font-size: 13px;
       max-width: 55ch;
+    }
+
+    .about-card code {
+      padding: 0 3px;
+      border-radius: 3px;
+      background: rgba(30, 120, 194, 0.1);
+      color: #0b3a66;
     }
 
     /* ---------- canvas stage ---------- */
@@ -289,51 +452,45 @@
       gap: 6px;
     }
 
+    /* Each group of floating buttons sits on a strip of frosted Aero glass,
+       so it reads over both the bright sky and the dark early levels. */
     .zoom {
       display: flex;
-      gap: 4px;
-      padding: 4px;
-      background: rgba(11, 13, 16, 0.82);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
+      gap: 5px;
+      padding: 5px;
+      background: linear-gradient(to bottom, rgba(29, 90, 147, 0.62), rgba(10, 38, 71, 0.72));
+      backdrop-filter: blur(8px) saturate(1.4);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 999px;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        0 0 0 1px rgba(10, 38, 71, 0.35),
+        0 6px 16px rgba(0, 30, 70, 0.35);
       user-select: none;
     }
 
     .zoom button {
-      appearance: none;
-      min-width: 34px;
-      padding: 5px 9px;
-      border: 1px solid transparent;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.04);
-      color: #c3cbd6;
-      font: inherit;
+      min-width: 36px;
+      padding: 5px 12px;
       font-size: 13px;
-      font-weight: 500;
-      font-variant-numeric: tabular-nums;
-      cursor: pointer;
     }
 
-    .zoom button:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.09);
-      color: #fff;
-    }
+    .zoom .zoom-level { min-width: 56px; }
 
-    .zoom button:focus-visible {
-      outline: 2px solid #4cc2ff;
-      outline-offset: 2px;
-    }
+    /* Orbit shows its name when stopped and a pause sign while orbiting,
+       keeping the same width so the button doesn't jump. */
+    #orbit { min-width: 64px; }
 
-    .zoom button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
+    #orbit .orbit-pause { display: none; width: 14px; height: 14px; fill: currentColor; vertical-align: -2px; }
 
-    .zoom .zoom-level { min-width: 52px; }
+    #orbit[aria-pressed="true"] .orbit-label { display: none; }
+
+    #orbit[aria-pressed="true"] .orbit-pause { display: inline-block; }
 
     /* The Units tab's Cube / Grid switch floats just under the header bar,
        pinned to the canvas, so it sits in the same place whatever the
-       header row holds. */
+       header row holds. When docked it drops lower, to clear the dock
+       toggle floating at the top of the screen. */
     .unit-switch {
       position: absolute;
       top: 12px;
@@ -341,16 +498,16 @@
       transform: translateX(-50%);
     }
 
+    header.docked ~ main .unit-switch { top: 48px; }
+
     .unit-switch[hidden] { display: none; }
 
-    .zoom button[aria-pressed="true"] {
-      background: rgba(76, 194, 255, 0.14);
-      border-color: rgba(76, 194, 255, 0.4);
-      color: #cfeaff;
-    }
+    .unit-switch button { min-width: 64px; }
 
     @media (max-width: 640px) {
-      header { padding: 10px 14px 8px; }
+      /* On a narrow screen the info row wraps and fills the bar's width, so
+         the dock toggle gets a strip of its own along the bottom. */
+      header { padding: 10px 14px 42px; }
 
       h1 { font-size: 21px; }
 
@@ -384,18 +541,41 @@
   <header>
     <div class="bar-top">
       <div class="identity">
-        <p class="eyebrow">WebGL Cube Landscapes &middot; Project 0</p>
-        <h1>Cube Landscape</h1>
-        <p class="byline">Maya Tomarchio</p>
+        <p class="eyebrow">WebGL</p>
+        <h1>Cube World Aero</h1>
+        <p class="byline">
+          <!-- A glossy aqua user icon, in the Aero style: a ball for the head
+               and a dome for the shoulders, each with a shine on top. -->
+          <svg class="avatar" viewBox="0 0 32 32" aria-hidden="true">
+            <defs>
+              <radialGradient id="avatar-fill" cx="50%" cy="35%" r="70%">
+                <stop offset="0" stop-color="#9ff0f5"/>
+                <stop offset="0.55" stop-color="#3fc3cf"/>
+                <stop offset="1" stop-color="#1d8f9e"/>
+              </radialGradient>
+              <linearGradient id="avatar-shine" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+                <stop offset="1" stop-color="#ffffff" stop-opacity="0.05"/>
+              </linearGradient>
+            </defs>
+            <path d="M3 31 C3 21 9 17.5 16 17.5 C23 17.5 29 21 29 31 Z" fill="url(#avatar-fill)"/>
+            <ellipse cx="16" cy="22.2" rx="8.5" ry="3.4" fill="url(#avatar-shine)"/>
+            <circle cx="16" cy="9.5" r="7.5" fill="url(#avatar-fill)"/>
+            <ellipse cx="16" cy="6.4" rx="5" ry="3.2" fill="url(#avatar-shine)"/>
+          </svg>
+          Maya Tomarchio
+        </p>
       </div>
 
-      <nav class="levels" aria-label="Project levels">
-        <button type="button" data-mode="units" title="Levels 0 and 1a &mdash; a single cube, or a grid of cubes">Unit</button>
-        <button type="button" data-mode="1bc" title="Level 1b/c &mdash; heights and vertex colours">1</button>
-        <button type="button" data-mode="2" title="Level 2 &mdash; heights and colours sampled from a PNG pair">2</button>
-        <button type="button" data-mode="3" title="Level 3 &mdash; cube skyscape moving along bezier curves">3</button>
-        <button type="button" disabled title="Level 4 &mdash; light, skybox, atmosphere">4</button>
-      </nav>
+      <div class="bar-actions">
+        <nav class="levels" aria-label="Project levels">
+          <button type="button" data-mode="units" title="Levels 0 and 1a &mdash; a single cube, or a grid of cubes">Unit</button>
+          <button type="button" data-mode="1bc" title="Level 1b/c &mdash; heights and vertex colours">1</button>
+          <button type="button" data-mode="2" title="Level 2 &mdash; heights and colours sampled from a PNG pair">2</button>
+          <button type="button" data-mode="3" title="Level 3 &mdash; cube skyscape moving along bezier curves">3</button>
+          <button type="button" data-mode="4" title="Level 4 &mdash; a whole city, a rainbow, and a camera you can steer">4</button>
+        </nav>
+      </div>
     </div>
 
     <div class="bar-info">
@@ -422,37 +602,41 @@
           </div>
           <div>
             <h2>How it is built</h2>
-            <p>One unit cube of 36 vertices is copied into a grid, each copy
-              translated to its cell and scaled in y, with a colour per corner.
-              Perspective and look-at matrices place the camera; the fragment
+            <p>One cube is copied into a grid and
+              translated to its cell and scaled in y, color assigned per corner.
+              Perspective and target matrices place the camera; the fragment
               shader blends the corner colours and lights every face. Level 2
-              replaces the noise and palette with a box-filtered sample of two
-              PNGs; Level 3 draws each sky object from its own buffer with a
-              per-object model matrix.</p>
+              replaces the noise and palette with a point-filtered sample from height and color
+              png files. Level 3 draws the bubbles, clouds, butterflies and windmills from their
+              own buffers with a per-object model matrix.</p>
           </div>
           <div>
-            <h2>The tabs</h2>
-            <p>Each tab isolates one idea: <b>Units</b> one cube (Level 0) or
-              its translation into a grid (1a), <b>1b/c</b> heights and
-              per-vertex colour, <b>2</b> heights and colours sampled from
+            <h2>Levels</h2>
+            <p>Each level isolates one idea:<br><b>1)</b> heights and
+              per-vertex colour<br> 
+              <b>2)</b> heights and colours sampled from
               <code>assets/color-map.png</code> and
-              <code>height-map.png</code>, <b>3</b> clouds, butterflies and soap bubbles
-              moving along cubic bezier curves over a still camera. The grid
-              buttons change the resolution without changing the landscape;
-              the zoom buttons (or scrolling over the canvas) zoom in and out,
-              and <b>Orbit</b> (Level 1d) circles the camera around any tab.
-              Both carry over between tabs.</p>
+              <code>height-map.png</code>,<br>
+              <b>3)</b> clouds, butterflies and bubbles
+              moving along cubic bezier curves.<br>
+              <b>Orbit</b> moves the camera around the origin point.
+              </p>
           </div>
           <div>
             <h2>Performance</h2>
             <p>The landscape is one buffer drawn in a single call, so it stays
               smooth up to tens of thousands of cubes. The readout shows the
-              resolution, cube count, rebuild time and frame rate; a reasonably
-              fast GPU helps at the top settings.</p>
+              resolution, cube count, rebuild time and frame rate. Decreased performace is possible with a slower GPU.</p>
           </div>
         </div>
       </details>
     </div>
+
+    <!-- Sits on the bar's bottom edge, in the middle. Docked, the bar is gone
+         and this is all that's left, at the top of the screen. -->
+    <button type="button" class="dock-toggle" id="dock" aria-pressed="false" aria-label="Hide the bar" title="Hide the bar">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10 L8 5 L13 10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </header>
 
   <main>
@@ -465,7 +649,11 @@
 
     <div class="view-controls">
       <div class="zoom">
-        <button type="button" id="orbit" aria-pressed="false" title="Level 1d &mdash; circle the camera around the scene">Orbit</button>
+        <button type="button" id="orbit" aria-pressed="false" aria-label="Orbit: circle the camera around the scene" title="Level 1d &mdash; circle the camera around the scene">
+          <span class="orbit-label">Orbit</span>
+          <!-- While orbiting, the button shows a pause sign instead. -->
+          <svg class="orbit-pause" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3.2" height="11" rx="1"/><rect x="9.3" y="2.5" width="3.2" height="11" rx="1"/></svg>
+        </button>
       </div>
       <div class="zoom" role="group" aria-label="Zoom">
         <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
