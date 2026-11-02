@@ -136,6 +136,18 @@
       white-space: nowrap;
     }
 
+    .meta a {
+      color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .meta a:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+
     /* Grid resolution picker: same pill language as the level tabs. */
     .res {
       display: flex;
@@ -168,7 +180,12 @@
       cursor: pointer;
     }
 
-    .res button:hover { background: rgba(255, 255, 255, 0.09); color: #fff; }
+    .res button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.09); color: #fff; }
+
+    .res button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
 
     .res button[aria-pressed="true"] {
       background: rgba(76, 194, 255, 0.14);
@@ -243,16 +260,93 @@
 
     /* ---------- canvas stage ---------- */
 
+    /* The sky behind the city levels: the canvas clears to transparent
+       there, so this gradient and its sun glow show through. */
     main {
       position: relative;
       flex: 1;
       min-height: 0;
+      background:
+        radial-gradient(circle at 82% 12%, rgba(255, 255, 255, 0.95) 0, rgba(255, 255, 255, 0.55) 4%, rgba(255, 255, 255, 0) 22%),
+        linear-gradient(to bottom, #1f86e0 0%, #4fb0f2 35%, #9fd9fb 65%, #def4ff 100%);
     }
 
     canvas {
       display: block;
       width: 100%;
       height: 100%;
+    }
+
+    /* Orbit and zoom float over the canvas, so they stay put on every level:
+       the Orbit toggle sits on its own just above the zoom buttons. */
+    .view-controls {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .zoom {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      background: rgba(11, 13, 16, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      user-select: none;
+    }
+
+    .zoom button {
+      appearance: none;
+      min-width: 34px;
+      padding: 5px 9px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #c3cbd6;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+    }
+
+    .zoom button:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.09);
+      color: #fff;
+    }
+
+    .zoom button:focus-visible {
+      outline: 2px solid #4cc2ff;
+      outline-offset: 2px;
+    }
+
+    .zoom button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .zoom .zoom-level { min-width: 52px; }
+
+    /* The Units tab's Cube / Grid switch floats just under the header bar,
+       pinned to the canvas, so it sits in the same place whatever the
+       header row holds. */
+    .unit-switch {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .unit-switch[hidden] { display: none; }
+
+    .zoom button[aria-pressed="true"] {
+      background: rgba(76, 194, 255, 0.14);
+      border-color: rgba(76, 194, 255, 0.4);
+      color: #cfeaff;
     }
 
     @media (max-width: 640px) {
@@ -296,10 +390,8 @@
       </div>
 
       <nav class="levels" aria-label="Project levels">
-        <button type="button" data-mode="0" title="Level 0 &mdash; a single 2 &times; 2 &times; 2 cube">0</button>
-        <button type="button" data-mode="1a" title="Level 1a &mdash; a grid of cubes, translation only">1a</button>
-        <button type="button" data-mode="1bc" title="Level 1b/c &mdash; heights and vertex colours">1b/c</button>
-        <button type="button" data-mode="1d" title="Level 1d &mdash; the camera orbit">1d</button>
+        <button type="button" data-mode="units" title="Levels 0 and 1a &mdash; a single cube, or a grid of cubes">Unit</button>
+        <button type="button" data-mode="1bc" title="Level 1b/c &mdash; heights and vertex colours">1</button>
         <button type="button" data-mode="2" title="Level 2 &mdash; heights and colours sampled from a PNG pair">2</button>
         <button type="button" data-mode="3" title="Level 3 &mdash; cube skyscape moving along bezier curves">3</button>
         <button type="button" disabled title="Level 4 &mdash; light, skybox, atmosphere">4</button>
@@ -340,14 +432,16 @@
           </div>
           <div>
             <h2>The tabs</h2>
-            <p>Each tab isolates one idea: <b>1a</b> translation into a grid,
-              <b>1b/c</b> heights and per-vertex colour, <b>1d</b> the orbit
-              camera, <b>2</b> heights and colours sampled from
+            <p>Each tab isolates one idea: <b>Units</b> one cube (Level 0) or
+              its translation into a grid (1a), <b>1b/c</b> heights and
+              per-vertex colour, <b>2</b> heights and colours sampled from
               <code>assets/color-map.png</code> and
-              <code>height-map.png</code>, <b>3</b> cube islands and clouds
+              <code>height-map.png</code>, <b>3</b> clouds, butterflies and soap bubbles
               moving along cubic bezier curves over a still camera. The grid
               buttons change the resolution without changing the landscape;
-              scrolling over the canvas zooms in, and double-clicking resets it.</p>
+              the zoom buttons (or scrolling over the canvas) zoom in and out,
+              and <b>Orbit</b> (Level 1d) circles the camera around any tab.
+              Both carry over between tabs.</p>
           </div>
           <div>
             <h2>Performance</h2>
@@ -362,7 +456,23 @@
   </header>
 
   <main>
-    <canvas id="c" title="Scroll to zoom in; double-click to reset"></canvas>
+    <canvas id="c" title="Scroll to zoom; double-click to reset"></canvas>
+
+    <div class="zoom unit-switch" id="units" role="group" aria-label="Units: one cube or a grid" hidden>
+      <button type="button" data-unit="0" aria-pressed="true" title="Level 0 &mdash; a single 2 &times; 2 &times; 2 cube">Cube</button>
+      <button type="button" data-unit="1a" aria-pressed="false" title="Level 1a &mdash; a grid of cubes, translation only">Grid</button>
+    </div>
+
+    <div class="view-controls">
+      <div class="zoom">
+        <button type="button" id="orbit" aria-pressed="false" title="Level 1d &mdash; circle the camera around the scene">Orbit</button>
+      </div>
+      <div class="zoom" role="group" aria-label="Zoom">
+        <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+        <button type="button" id="zoom-reset" class="zoom-level" title="Reset zoom to 1&times;">1.0&times;</button>
+        <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">&minus;</button>
+      </div>
+    </div>
   </main>
 
   <script src="index.js"></script>

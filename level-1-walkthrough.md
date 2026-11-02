@@ -27,9 +27,7 @@ matrix" uniform between calls. It is the obvious approach and it works — up to
 thousand cubes, where the per-draw-call CPU overhead starts to dominate. At 128 × 128 that
 is 16,384 draw calls per frame, and the browser will not keep up.
 
-The version in [index.js](index.js) does the opposite: **it bakes every cube's final position
-and colour into one big array once, uploads it as a single buffer, and draws the entire
-landscape with one call.**
+The version in [index.js](index.js) does the opposite: **it bakes every cube's final position and colour into one big array once, uploads it as a single buffer, and draws the entire landscape with one call.**
 
 ```
 CPU, once per rebuild                 GPU, every frame
