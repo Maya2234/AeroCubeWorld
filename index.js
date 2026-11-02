@@ -2,8 +2,8 @@
    Cube landscape — Levels 0 to 3
 
    Where each part of the project lives in this file:
-     0   buildSingleCube() — one 2 × 2 × 2 cube
-     1a  buildGrid()      — translation: every cube's spot on the x–z plane
+     0   buildSingleCube() 
+     1a  buildGrid()      
      1b  heightField()    — scaling: the noise procedure that picks heights
      1c  paletteColor()   — colour per VERTEX, interpolated by the GPU
      1d  cameraFor()      — the camera orbiting its look-at point
@@ -98,11 +98,11 @@ gl.linkProgram(program);
 gl.useProgram(program);
 
 /* ---------------------------------------------------------------------
-   2. The unit cube — the only geometry the GPU ever sees
-   ---------------------------------------------------------------------
-   36 vertices: 12 triangles, 6 per face. Each vertex is 6 floats:
-   position (x, y, z) then normal (nx, ny, nz). The cube is 1×1×1 and its
-   base sits on y = 0, so scaling y makes it grow upward from the ground.
+   unit cube
+   36 vertices: 12 triangles. Each vertex is 6 floats:
+   position (x, y, z) then normal (nx, ny, nz)
+   1×1×1
+   base y = 0
    --------------------------------------------------------------------- */
 
 const CUBE = new Float32Array([
@@ -161,7 +161,7 @@ const BYTES_PER_FLOAT = 4;
 const STRIDE = FLOATS_PER_VERTEX * BYTES_PER_FLOAT;
 
 /* ---------------------------------------------------------------------
-   3. Matrix helpers
+   Matrix helpers
    --------------------------------------------------------------------- */
 
 // Move a point by (x, y, z).
@@ -249,7 +249,7 @@ function lookAt(eye, target, up) {
 }
 
 /* ---------------------------------------------------------------------
-   4. Level 1b — the height procedure
+   Level 1b — add height
    ---------------------------------------------------------------------
    A height map from noise. valueNoise() gives a smooth blob between four
    random lattice points; fbm() ("fractal Brownian motion") adds several
@@ -262,7 +262,7 @@ function lookAt(eye, target, up) {
    --------------------------------------------------------------------- */
 
 const SPACING = 1;              // world units between neighbouring cube centres
-const HILLS = 2.6;              // how many big hills across the terrain
+const HILLS = 8;              // how many big hills across the terrain
 const HEIGHT_RATIO = 0.14;      // tallest cube, as a fraction of terrain width
 
 // Deterministic pseudo-random number for one lattice point: same (x, y)
@@ -369,8 +369,8 @@ function paletteColor(t, out) {
    6. Building the buffer
    --------------------------------------------------------------------- */
 
-const FLAT_COLOR = [0.40, 0.55, 0.80];   // used by Level 1a (no colour rule yet)
-const SINGLE_COLOR = [0.86, 0.47, 0.30];
+const level1a_COLOR = [0.40, 0.55, 0.80];
+const level0_COLOR = [0.86, 0.47, 0.30]; 
 
 // Write one transformed cube into `data` starting at float index `start`.
 // `model` is translation × scaling, exactly as in Level 0, but applied here
@@ -444,7 +444,7 @@ function buildGrid(n, options) {
         model,
         colorMode,
         field ? field.peak : 1,
-        FLAT_COLOR,
+        level1a_COLOR,
       );
     }
   }
@@ -612,7 +612,7 @@ Promise.all([
 function buildSingleCube() {
   const data = new Float32Array(VERTS_PER_CUBE * FLOATS_PER_VERTEX);
   const model = multiply(translation(0, 0, 0), scaling(2, 2, 2));
-  writeCube(data, 0, model, 'flat', 1, SINGLE_COLOR);
+  writeCube(data, 0, model, 'flat', 1, level0_COLOR);
   return { data, vertexCount: VERTS_PER_CUBE, cubes: 1, span: 2 };
 }
 
@@ -885,7 +885,7 @@ const MODES = {
 };
 
 const state = {
-  mode: '1d',
+  mode: '0',
   zoom: 1,            // 1 = the normal field of view; higher is closer in
   n: 64,
   vertexCount: 0,
@@ -952,29 +952,20 @@ const ORBIT_SPEED = .22;     // radians per second
 // instead of sitting in the middle of a wide black frame.
 const BASE_FIELD_OF_VIEW = (33 * Math.PI) / 180;
 
-function cameraFor(time, aspect) {
-  // A narrow window sees less left-to-right, so pull the camera back.
-  const fit = Math.max(1, 1.5 / aspect);
+function cameraFor(time) {
+  const span = state.span;
+  const zoom = .8;
+  let camera =  {
+    eye: [span * 0.97 * zoom, span * 0.69 * zoom, span * 1.17 * zoom],
+    target: [0, 0, 0],
+    near: Math.max(0.1, span * 0.01),
+    far: span * 6 + 50,
+  };
 
   if (state.mode === '0') {
     // The distance is scaled by tan(45°/2) / tan(33°/2) ≈ 1.4, so the cube
     // keeps exactly the apparent size it had before the longer lens.
-    return { eye: [7.0, 5.3, 8.7], target: [0, 1, 0], near: 0.1, far: 80 };
-  }
-
-  const span = state.span;
-
-  // Level 3: a still camera, pulled back and tilted up slightly so the whole
-  // Level 3: the landscape is framed like the static terrain views, and the
-  // sky objects fly through the top of the shot, entering and leaving past
-  // the edges of the canvas rather than being cut off in the middle.
-  if (MODES[state.mode].sky) {
-    return {
-      eye: [span * 0.97 * fit, span * 0.69 * fit, span * 1.17 * fit],
-      target: [0, 0, 0],
-      near: Math.max(0.1, span * 0.01),
-      far: span * 6 + 50,
-    };
+    return { eye: [10, 5.3, 8.7], target: [0, 1, 0], near: 0.1, far: 80 };
   }
 
   if (MODES[state.mode].orbit) {
@@ -982,25 +973,20 @@ function cameraFor(time, aspect) {
     // (The radius is a little wider than the terrain's diagonal so the corners
     // never leave the frame as the camera swings around.)
     const angle = time * ORBIT_SPEED;
-    const radius = span * 1.2 * fit;
+    const radius = span * 1.2;
     return {
       eye: [
         Math.cos(angle) * radius,
-        span * 0.45 * fit,
+        span * 0.45,
         Math.sin(angle) * radius,
       ],
-      target: [0, 0, 0],                                  // look at the centre
+      target: [0, 0, 0],
       near: Math.max(0.1, span * 0.01),
       far: span * 6 + 50,
     };
   }
 
-  return {
-    eye: [span * 0.97 * fit, span * 0.69 * fit, span * 1.17 * fit],
-    target: [0, 0, 0],
-    near: Math.max(0.1, span * 0.01),
-    far: span * 6 + 50,
-  };
+  return camera;
 }
 
 /* ---------------------------------------------------------------------
@@ -1083,7 +1069,7 @@ function rebuild() {
   if (state.mode === '0') {
     built = buildSingleCube();
   } else if (state.mode === '2') {
-    // Fall back to the noise landscape until the PNGs have decoded.
+    // use noise landscape until the PNGs have decoded
     built = buildImageGrid(state.n) || buildGrid(state.n, MODES['1bc']);
   } else {
     built = buildGrid(state.n, MODES[state.mode]);
