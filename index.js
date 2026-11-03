@@ -1017,7 +1017,14 @@ const CLOUDS = (() => {
     const distance = EYE_TO_LANE_ZERO + lane;
     const highest = EYE_HEIGHT - TOP_OF_VIEW * distance;
     const lowest = lane < ISLAND_BACK_LANE ? ABOVE_TOWERS : 0.04;
-    const y = lowest + random() * Math.max(highest - lowest, 0);
+    // Most sit in the band the opening view shows; about a third float
+    // higher, out of that first view, for tilting up or zooming out to find.
+    const y = random() < 0.35
+      ? Math.max(highest, lowest) + 0.05 + random() * 0.3
+      : lowest + random() * Math.max(highest - lowest, 0);
+    // And each drifts gently up and down along its path, never lower than
+    // it's allowed to go.
+    const sway = () => Math.max(y + 0.12 * (random() - 0.5), lowest);
 
     // Farther clouds are bigger, so they still read from a distance. Each
     // path reaches just past the screen's edge at its distance (even on a
@@ -1034,7 +1041,7 @@ const CLOUDS = (() => {
     return {
       cubes: makeCloudCubes(random),
       lane,
-      heights: [y, y + 0.02 * (random() - 0.5), y + 0.02 * (random() - 0.5), y],
+      heights: [sway(), sway(), sway(), sway()],
       reach,
       scale: (0.045 + random() * 0.03) * (1 + Math.max(lane - 1, 0) * 0.35),
       // Nearly the same loop time for every cloud (about 4 minutes), so the
@@ -1387,9 +1394,9 @@ function drawRainbow(eye) {
   gl.disable(gl.BLEND);
 }
 
-// Bubbles clicked into the scene: each starts where you clicked (just above
-// the ground, or out in the air if you clicked the sky), then floats up and
-// drifts with the clouds' wind, wobbling a little, until it pops after a
+// Bubbles blown into the scene: a click or tap blows one a short way in
+// front of the camera, under the pointer, at a random size. It floats up
+// and drifts with the clouds' wind, wobbling a little, until it pops after a
 // while. Positions are in world units, so the list is cleared whenever the
 // landscape is rebuilt at a new size.
 const SPAWNED = [];
@@ -1397,11 +1404,18 @@ const SPAWN_LIMIT = 40;
 const SPAWN_LIFE = 28;          // seconds before a bubble pops
 const SPAWN_RISE = 0.012;       // terrain widths per second
 const SPAWN_DRIFT = 0.01;
+const SPAWN_NEAR = 0.16;        // how far in front of the camera, in terrain widths:
+const SPAWN_FAR = 0.36;         //   somewhere between these two
+const SPAWN_SMALLEST = 0.004;   // radius, in terrain widths
+const SPAWN_LARGEST = 0.015;
 
 // `y` is where it starts in the air; leave it out to start on the ground.
 function spawnBubble(x, z, time, y = null) {
   if (SPAWNED.length >= SPAWN_LIMIT) SPAWNED.shift();
-  SPAWNED.push({ x, y, z, born: time, scale: 0.009 + Math.random() * 0.007, seed: Math.random() * 10 });
+  // Mostly small with the odd big one: squaring the random number leans
+  // toward the small end.
+  const scale = SPAWN_SMALLEST + (SPAWN_LARGEST - SPAWN_SMALLEST) * Math.random() ** 2;
+  SPAWNED.push({ x, y, z, born: time, scale, seed: Math.random() * 10 });
 }
 
 function placeSpawned(time, span) {
@@ -1648,7 +1662,7 @@ const UNIT_MODES = ['0', '1a'];
 const state = {
   mode: '3',
   unit: '0',          // which of the Units tab's two levels was last shown
-  orbit: false,       // Level 1d: the camera circles the scene, on any tab
+  orbit: true,        // Level 1d: the camera circles the scene; on by default
   orbitAngle: 0,      // how far round it has gone; kept when the orbit pauses
   noise: false,       // the terrain on screen was built from fBm noise
   zoom: 1,            // 1 = the normal field of view; higher is closer in
@@ -1754,16 +1768,17 @@ function cameraFor(time) {
     camera.target = [0, span * 0.15, 0];
   }
 
-  if (state.orbitAngle || free) {
+  if (state.orbitAngle || state.view.yaw || state.view.pitch || free) {
     // Describe the eye by where it sits around the target: an angle around
     // (yaw), an angle above the ground (elevation) and a distance. Then
     // 1d's orbit turns it around at the same height and distance, so every
     // tab orbits from exactly its usual view (on the landscape, whenever the
     // camera lines up with a corner, that corner just touches the bottom of
-    // the screen), and Level 4's mouse turns, tilts and slides it. The orbit
-    // angle stays put while paused, so the view holds where it stopped.
-    const yaw = state.orbitAngle + (free ? state.view.yaw : 0);
-    const pitch = free ? state.view.pitch : 0;
+    // the screen). Dragging turns and tilts it on any level, and Level 4
+    // can also slide it. The orbit angle stays put while paused, so the
+    // view holds where it stopped.
+    const yaw = state.orbitAngle + state.view.yaw;
+    const pitch = state.view.pitch;
     const pan = free ? state.view.pan : [0, 0];
 
     const [tx, ty, tz] = camera.target;
@@ -1811,6 +1826,62 @@ function syncCanvasSize() {
   gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
+/* Level 4's horizon. Two things together hide where the map's cubes run
+   out: a sheet of grass beyond them (the skirt), and haze that's complete
+   by the time the camera's line of sight reaches the map's edge. */
+
+// The skirt: one flat square of grass, two triangles, facing up. It sits
+// just below the lowest ground (the lake's surface), so wherever there are
+// cubes it's hidden underneath them and only shows past the map's edge.
+const SKIRT_GREEN = [0.24, 0.7, 0.19];   // the city maps' grass
+
+const SKIRT = (() => {
+  const corner = (x, z) => [x, 0, z, 0, 1, 0, ...SKIRT_GREEN];
+  const data = new Float32Array([
+    ...corner(-1, -1), ...corner(-1, 1), ...corner(1, 1),
+    ...corner(-1, -1), ...corner(1, 1), ...corner(1, -1),
+  ]);
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  return { buffer, vertexCount: 6 };
+})();
+
+function drawSkirt() {
+  const span = state.span;
+  const reach = span * 7;                                // past the far clipping distance
+  const y = span * 0.012 * LANDSCAPE_SCALE * 0.95;       // just under the lake's surface
+  const model = multiply(translation(0, y, 0), scaling(reach, 1, reach));
+  gl.uniformMatrix4fv(uModel, false, model);
+  useGeometry(SKIRT.buffer);
+  gl.drawArrays(gl.TRIANGLES, 0, SKIRT.vertexCount);
+}
+
+// Where the haze starts and where it's complete. Normally from 2.2 to 4.2
+// terrain widths away. On Level 4 it's complete no later than where the
+// camera's line of sight, flattened onto the ground, leaves the map: so
+// however the camera is turned or slid, the edge in front of it is hazed.
+function hazeRange(camera) {
+  const span = state.span;
+  let end = span * 4.2;
+
+  if (MODES[state.mode].haze) {
+    const half = 0.5 * currentMap().extent * span * LANDSCAPE_SCALE;
+    const [ex, , ez] = camera.eye;
+    let fx = camera.target[0] - ex;
+    let fz = camera.target[2] - ez;
+    const length = Math.hypot(fx, fz) || 1;
+    fx /= length;
+    fz /= length;
+    // How far along that direction until it crosses x = ±half or z = ±half.
+    const exit = (from, step) => (step > 0 ? (half - from) / step : step < 0 ? (-half - from) / step : Infinity);
+    const toEdge = Math.min(exit(ex, fx), exit(ez, fz));
+    end = Math.min(end, Math.max(toEdge, span * 1.4));
+  }
+
+  return [end * 0.52, end];
+}
+
 function draw(time) {
   syncCanvasSize();
 
@@ -1831,7 +1902,8 @@ function draw(time) {
   // Level 4's haze: everything starts fading into the sky a couple of
   // terrain widths away and is gone by about four.
   gl.uniform1f(uHaze, MODES[state.mode].haze ? 1 : 0);
-  gl.uniform2f(uHazeRange, state.span * 2.2, state.span * 4.2);
+  const haze = hazeRange(camera);
+  gl.uniform2f(uHazeRange, haze[0], haze[1]);
   gl.uniform1f(uCanvasHeight, canvas.height);
   lastDrawTime = time;
 
@@ -1854,6 +1926,10 @@ function draw(time) {
   gl.uniformMatrix4fv(uModel, false, landscapeModel);
   useGeometry(vertexBuffer);
   gl.drawArrays(gl.TRIANGLES, 0, state.vertexCount);
+
+  // Level 4: grass that carries on past the map's last cubes, out to the
+  // horizon, so the land never ends at an edge.
+  if (MODES[state.mode].haze) drawSkirt();
 
   // The turbines stand on the image's ground, so they wait for the maps.
   if (city && currentMap().status === 'ready') drawTurbines(time);
@@ -1977,9 +2053,32 @@ function restartRendering() {
 }
 
 function applyMode(mode) {
-  state.mode = mode;   // state.zoom and state.orbit are left alone, so they carry over
+  const arriving = mode !== shownMode;
+  shownMode = mode;
+  state.mode = mode;   // state.orbit is left alone, so it carries over
+
+  // Every level opens at the normal 1× zoom, from its usual view: any
+  // dragged turn, tilt or slide is undone.
+  state.zoom = 1;
+  markZoom();
+  state.view = { yaw: 0, pitch: 0, pan: [0, 0] };
   const unitTab = UNIT_MODES.includes(mode);
   if (unitTab) state.unit = mode;
+
+  // Level 4's popups, the hint and the message box, come up only the first
+  // time Level 4 opens. Leaving Level 4 puts the hint away early.
+  if (mode === '4' && arriving && !level4Visited) {
+    level4Visited = true;
+    showLevel4Popups();
+  }
+  if (mode !== '4') hideHint();
+
+  // Every level opens already orbiting, so each scene turns to show itself
+  // off. Orbit can still be paused from there.
+  if (arriving) {
+    state.orbit = true;
+    markOrbit();
+  }
 
   levelButtons.forEach((button) => {
     const tab = button.dataset.mode;
@@ -2009,12 +2108,95 @@ function applyMode(mode) {
   updateStatus();
 }
 
-function applyOrbit(on) {
-  state.orbit = on;
+/* Level 4's popups, little XP-style windows over the scene. They sit above
+   the canvas but only catch clicks on themselves, so everything else keeps
+   working around them. */
+const hintEl = document.getElementById('hint');
+const hintFill = document.getElementById('hint-fill');
+const immerseEl = document.getElementById('immerse');
+const immerseTitle = document.getElementById('immerse-title');
+const immerseOk = document.getElementById('immerse-ok');
+const HINT_SECONDS = 10;
+
+let shownMode = null;     // the level on screen, to notice arriving at Level 4
+let hintTimer = 0;
+let immerseShown = false; // the message box only comes up once per visit
+let level4Visited = false;  // the popups only come up the first time
+
+function hideHint() {
+  clearTimeout(hintTimer);
+  hintEl.hidden = true;
+}
+
+function showLevel4Popups() {
+  // The hint: show it, restart its countdown bar from full, and put it away
+  // when the bar runs out.
+  hintEl.hidden = false;
+  hintFill.style.animation = 'none';
+  void hintFill.offsetWidth;          // let the browser see the reset
+  hintFill.style.animation = '';
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(hideHint, HINT_SECONDS * 1000);
+
+  // The message box, the first time only, somewhere random over the scene
+  // (after that it can be dragged anywhere, over the bar too).
+  if (!immerseShown) {
+    immerseShown = true;
+    immerseEl.hidden = false;
+    const scene = immerseEl.parentElement.getBoundingClientRect();
+    const box = immerseEl.getBoundingClientRect();
+    const room = (space, size) => Math.max(space - size - 32, 0);
+    moveImmerse(
+      scene.left + 16 + Math.random() * room(scene.width, box.width),
+      scene.top + 16 + Math.random() * room(scene.height, box.height),
+    );
+  }
+}
+
+// Place the message box, kept fully inside the browser window.
+function moveImmerse(left, top) {
+  const box = immerseEl.getBoundingClientRect();
+  immerseEl.style.left = `${Math.min(Math.max(left, 0), Math.max(innerWidth - box.width, 0))}px`;
+  immerseEl.style.top = `${Math.min(Math.max(top, 0), Math.max(innerHeight - box.height, 0))}px`;
+}
+
+immerseOk.addEventListener('click', () => { immerseEl.hidden = true; });
+
+// Drag the message box around by its title bar.
+let boxDrag = null;
+
+immerseTitle.addEventListener('pointerdown', (event) => {
+  boxDrag = {
+    x: event.clientX,
+    y: event.clientY,
+    left: immerseEl.getBoundingClientRect().left,
+    top: immerseEl.getBoundingClientRect().top,
+  };
+  try { immerseTitle.setPointerCapture(event.pointerId); } catch { /* not a real pointer */ }
+  event.preventDefault();
+});
+
+immerseTitle.addEventListener('pointermove', (event) => {
+  if (!boxDrag) return;
+  moveImmerse(boxDrag.left + event.clientX - boxDrag.x, boxDrag.top + event.clientY - boxDrag.y);
+});
+
+const endBoxDrag = () => { boxDrag = null; };
+immerseTitle.addEventListener('pointerup', endBoxDrag);
+immerseTitle.addEventListener('pointercancel', endBoxDrag);
+
+// Show on the Orbit button whether the orbit is running.
+function markOrbit() {
+  const on = state.orbit;
   orbitButton.setAttribute('aria-pressed', String(on));
   const label = on ? 'Pause the orbit' : 'Orbit: circle the camera around the scene';
   orbitButton.setAttribute('aria-label', label);
   orbitButton.title = label;
+}
+
+function applyOrbit(on) {
+  state.orbit = on;
+  markOrbit();
 
   // A level that animates anyway keeps its loop (and its clouds' clock)
   // running; the orbit just starts or stops adding to its angle. A still
@@ -2071,10 +2253,15 @@ const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3.5;
 const ZOOM_STEP = 1.25;    // each button press zooms by 25%
 
-function refreshView() {
+// Show the current zoom on the zoom buttons.
+function markZoom() {
   zoomResetButton.textContent = `${state.zoom.toFixed(1)}×`;
   zoomOutButton.disabled = state.zoom <= ZOOM_MIN + 0.0001;
   zoomInButton.disabled = state.zoom >= ZOOM_MAX - 0.0001;
+}
+
+function refreshView() {
+  markZoom();
   updateStatus();
   if (isAnimated()) return;   // the animation loop redraws
   draw(0);
@@ -2101,9 +2288,9 @@ canvas.addEventListener('dblclick', () => {
   if (!isAnimated()) draw(0);
 });
 
-/* Level 4's mouse: left-drag turns and tilts the camera, right-drag (or
-   Shift-drag) slides it across the city, and a click that doesn't drag
-   drops a bubble on the ground under the pointer. */
+/* The mouse: on every level, dragging turns and tilts the camera. On Level
+   4, right-drag (or Shift-drag) also slides it across the city, and a click
+   that doesn't drag blows a bubble. */
 const DRAG_THRESHOLD = 5;       // pixels before a press counts as a drag
 const TURN_SPEED = 0.006;       // radians per pixel
 const PAN_SPEED = 0.0016;       // terrain widths per pixel, scaled by distance
@@ -2125,11 +2312,11 @@ canvas.addEventListener('contextmenu', (event) => {
 });
 
 canvas.addEventListener('pointerdown', (event) => {
-  if (!MODES[state.mode].freeCamera) return;
   drag = {
     x: event.clientX,
     y: event.clientY,
-    pan: event.button === 2 || event.shiftKey,
+    // Sliding is Level 4's alone; anywhere else every drag turns.
+    pan: Boolean(MODES[state.mode].freeCamera) && (event.button === 2 || event.shiftKey),
     moved: false,
   };
   // Keep receiving moves even if the pointer leaves the canvas mid-drag.
@@ -2144,6 +2331,9 @@ canvas.addEventListener('pointermove', (event) => {
   drag.moved = true;
   drag.x = event.clientX;
   drag.y = event.clientY;
+  // Show what the drag is doing: turning, or sliding.
+  canvas.classList.toggle('panning', drag.pan);
+  canvas.classList.toggle('rotating', !drag.pan);
 
   const view = state.view;
   if (drag.pan) {
@@ -2171,20 +2361,28 @@ canvas.addEventListener('pointermove', (event) => {
       MAX_TILT - start,
     );
   }
+
+  // A still level isn't redrawing on its own, so draw the new view.
+  if (!isAnimated()) draw(0);
 });
 
 canvas.addEventListener('pointerup', (event) => {
   if (!drag) return;
   const clicked = !drag.moved && !drag.pan;
   drag = null;
+  canvas.classList.remove('rotating', 'panning');
   if (clicked && MODES[state.mode].clickBubbles) dropBubbleAt(event);
 });
 
-canvas.addEventListener('pointercancel', () => { drag = null; });
+canvas.addEventListener('pointercancel', () => {
+  drag = null;
+  canvas.classList.remove('rotating', 'panning');
+});
 
-// Find the ground under the pointer: a ray from the camera through that
-// pixel, met with the ground. The ground isn't flat, so meet a flat plane
-// first, read the cube height there, and meet that height again a few times.
+// Blow a bubble toward the pointer: a ray from the camera through that
+// pixel, and the bubble a short, random way along it, just in front of the
+// camera. If that spot happens to be inside a hill or a building, it starts
+// on top instead (placeSpawned keeps every bubble above the roofs).
 function dropBubbleAt(event) {
   const rect = canvas.getBoundingClientRect();
   const nx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2206,26 +2404,11 @@ function dropBubbleAt(event) {
   const tanY = Math.tan(BASE_FIELD_OF_VIEW / state.zoom / 2);
   const aspect = rect.width / rect.height;
   const dir = forward.map((c, i) => c + right[i] * nx * tanY * aspect + up[i] * ny * tanY);
+  const length = Math.hypot(...dir);
 
-  // Clicked the sky: the ray never meets the ground, so put the bubble out
-  // in the air along it, as far away as the middle of the scene.
-  if (dir[1] >= 0) {
-    const length = Math.hypot(...dir);
-    const point = dir.map((c, i) => eye[i] + (c / length) * fl);
-    spawnBubble(point[0], point[2], lastDrawTime, point[1]);
-    return;
-  }
-
-  let height = 0;
-  let x = 0;
-  let z = 0;
-  for (let step = 0; step < 4; step++) {
-    const t = (height - eye[1]) / dir[1];
-    x = eye[0] + dir[0] * t;
-    z = eye[2] + dir[2] * t;
-    height = groundUnder(x, z, 0.5, state.span);
-  }
-  spawnBubble(x, z, lastDrawTime);
+  const away = (SPAWN_NEAR + Math.random() * (SPAWN_FAR - SPAWN_NEAR)) * state.span;
+  const point = dir.map((c, i) => eye[i] + (c / length) * away);
+  spawnBubble(point[0], point[2], lastDrawTime, point[1]);
 }
 zoomInButton.addEventListener('click', () => setZoom(state.zoom * ZOOM_STEP));
 zoomOutButton.addEventListener('click', () => setZoom(state.zoom / ZOOM_STEP));
@@ -2233,6 +2416,20 @@ zoomResetButton.addEventListener('click', () => setZoom(1));
 
 window.addEventListener('resize', () => {
   if (!isAnimated()) draw(0);
+});
+
+// The up and down arrow keys zoom in and out, like the + and − buttons.
+// They're left alone while typing somewhere, and they don't scroll the page.
+window.addEventListener('keydown', (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  if (event.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    setZoom(state.zoom * ZOOM_STEP);
+  } else if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    setZoom(state.zoom / ZOOM_STEP);
+  }
 });
 
 markResolution(state.n);

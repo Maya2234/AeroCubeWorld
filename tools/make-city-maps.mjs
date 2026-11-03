@@ -177,7 +177,26 @@ const FRONT_HILL = { u: 0.8, v: 0.82, radius: 0.28 };
 // The metro's open countryside: one big smooth grassy hill to the right,
 // the classic Frutiger Aero field, kept clear of trees and houses, with the
 // wind turbines standing along it.
-const FIELD_HILL = METRO ? { u: 1.32, v: 0.95, radius: 0.55, height: 0.11 } : null;
+const FIELD_HILL = METRO ? { u: 1.32, v: 0.95, radius: 0.6, height: 0.22 } : null;
+
+// More broad, rolling hills out in the metro's countryside, each a smooth
+// bump: where it is, how wide and how tall.
+const ROLLING_HILLS = METRO ? [
+  { u: -0.45, v: 1.45, radius: 0.55, height: 0.2 },
+  { u: 0.85, v: 1.6, radius: 0.45, height: 0.17 },
+  { u: -0.55, v: -0.35, radius: 0.55, height: 0.24 },
+  { u: 1.55, v: -0.45, radius: 0.5, height: 0.22 },
+  { u: 0.55, v: -0.6, radius: 0.4, height: 0.16 },
+] : [];
+
+// And one big, empty field: open grass with no trees or houses, sitting in
+// the dip between hills in front and to the left.
+const OPEN_FIELD = METRO ? { u: 0.05, v: 1.32, ru: 0.42, rv: 0.26 } : null;
+
+function inOpenField(u, v) {
+  if (!OPEN_FIELD) return false;
+  return Math.hypot((u - OPEN_FIELD.u) / OPEN_FIELD.ru, (v - OPEN_FIELD.v) / OPEN_FIELD.rv) < 1;
+}
 
 // And a river winding across the front, through the lake. Its course is a
 // chain of points, smoothed into a curve below.
@@ -284,8 +303,9 @@ function cityAmount(u, v) {
 
 // Roads curving in from the edge of the map to the city: on the island, one
 // from the near-right corner past the foreground hill and one from the
-// right. The metro adds more from every side. Each is a quadratic curve: it
-// starts at `from`, bends toward `via` and ends at `to`.
+// right. The metro carries those two on to the map's edge and adds one from
+// the left; its roads are wider, like real highways. Each is a quadratic
+// curve: it starts at `from`, bends toward `via` and ends at `to`.
 const ROADS = [
   { from: [1.4, 1.27], via: [0.85, 0.72], to: [0.49, 0.46] },
   { from: [1.4, 0.0], via: [0.9, 0.2], to: [0.57, 0.3] },
@@ -293,12 +313,9 @@ const ROADS = [
     { from: [1.8, 1.75], via: [1.4, 1.27], to: [1.4, 1.27] },     // the first road, carried on
     { from: [1.8, -0.05], via: [1.4, 0.0], to: [1.4, 0.0] },      // the second, carried on
     { from: [-0.8, 0.3], via: [-0.2, 0.22], to: [0.12, 0.28] },
-    { from: [0.32, -0.8], via: [0.34, -0.3], to: [0.33, 0.05] },
-    { from: [-0.8, 1.2], via: [-0.3, 0.8], to: [0.02, 0.5] },
-    { from: [1.0, -0.8], via: [0.85, -0.3], to: [0.6, 0.1] },
   ] : []),
 ];
-const ROAD_HALF_WIDTH = 0.012;
+const ROAD_HALF_WIDTH = METRO ? 0.02 : 0.012;
 
 // Each road as a chain of short straight pieces, plus a bounding box so most
 // pixels can skip the road without measuring anything.
@@ -347,7 +364,12 @@ function grassHeight(u, v) {
   const d = Math.hypot(u - FRONT_HILL.u, v - FRONT_HILL.v) / FRONT_HILL.radius;
   const frontHill = Math.exp(-d * d * 2.2);
   const field = FIELD_HILL ? FIELD_HILL.height * fieldHill(u, v) : 0;
-  return GRASS_BASE + GRASS_HILLS * hills + FRONT_HILL_HEIGHT * frontHill + field;
+  let rolling = 0;
+  for (const hill of ROLLING_HILLS) {
+    const r = Math.hypot(u - hill.u, v - hill.v) / hill.radius;
+    if (r < 1) rolling += hill.height * Math.pow(Math.cos(r * Math.PI / 2), 2);
+  }
+  return GRASS_BASE + GRASS_HILLS * hills + FRONT_HILL_HEIGHT * frontHill + field + rolling;
 }
 
 // The city's skyline rises around a few "downtown" spots instead of one
@@ -421,7 +443,7 @@ for (let attempt = 0, houses = 0; attempt < HOUSES * 200 && houses < HOUSES; att
   if (!METRO && v < 0.13) continue;
   if (cityAmount(u, v) > 0.3 || lakeAmount(u, v) > 0 || onRoad(u, v, 0.02) || inPark(u, v)) continue;
   if (TURBINE_SPOTS.some(([tu, tv]) => Math.hypot(u - tu, v - tv) < 0.1)) continue;
-  if (fieldHill(u, v) > 0.1) continue;      // the field hill stays open
+  if (fieldHill(u, v) > 0.1 || inOpenField(u, v)) continue;   // the open fields stay open
 
   const w = 0.014 + random() * 0.01;
   const d = 0.014 + random() * 0.01;
@@ -447,6 +469,7 @@ while (trees.length < Math.round(140 * EXTENT * EXTENT)) {
   if (lakeAmount(u, v) > 0.01 || onRoad(u, v, 0.02)) continue;
   if (overlapsBuilding(u, v, 2 * r, 2 * r, PAVING + 0.004)) continue;
   if (fieldHill(u, v) > 0.25) continue;     // an open field: trees only round its foot
+  if (inOpenField(u, v)) continue;          // and the empty field has none at all
   trees.push({ u, v, r });
 }
 

@@ -38,6 +38,18 @@
 
     html { cursor: var(--cursor-arrow); }
 
+    /* While steering Level 4's camera: two curved arrows while turning it,
+       four arrows while sliding it, in the same aqua glass. The hotspot is
+       the middle of each. */
+    canvas.rotating {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f2fdff'/%3E%3Cstop offset='0.45' stop-color='%2388def7'/%3E%3Cstop offset='1' stop-color='%231b86d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M7 15 A9 9 0 0 1 22.5 9.5' stroke='%23136aad' stroke-width='6.2'/%3E%3Cpath d='M25 17 A9 9 0 0 1 9.5 22.5' stroke='%23136aad' stroke-width='6.2'/%3E%3Cpath d='M7 15 A9 9 0 0 1 22.5 9.5' stroke='url(%23g)' stroke-width='3.8'/%3E%3Cpath d='M25 17 A9 9 0 0 1 9.5 22.5' stroke='url(%23g)' stroke-width='3.8'/%3E%3C/g%3E%3Cpath d='M19 4.5 L28 8 L21 14.5 Z' fill='url(%23g)' stroke='%23136aad' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M13 27.5 L4 24 L11 17.5 Z' fill='url(%23g)' stroke='%23136aad' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E") 16 16, grabbing;
+    }
+
+    canvas.panning,
+    .xp-dialog .xp-title {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f2fdff'/%3E%3Cstop offset='0.45' stop-color='%2388def7'/%3E%3Cstop offset='1' stop-color='%231b86d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M16 2 L21 8 H18 V14 H24 V11 L30 16 L24 21 V18 H18 V24 H21 L16 30 L11 24 H14 V18 H8 V21 L2 16 L8 11 V14 H14 V8 H11 Z' fill='url(%23g)' stroke='%23136aad' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M15 4.5 V13.5' stroke='white' stroke-opacity='0.85' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E") 11 11, move;
+    }
+
     button:not(:disabled),
     summary,
     a {
@@ -159,6 +171,26 @@
       color: #a6ec5c;
     }
 
+    .eyebrow a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* The GitHub mark, sized to the small label beside it. */
+    .repo-link svg {
+      width: 13px;
+      height: 13px;
+      vertical-align: -2px;
+    }
+
+    .eyebrow a:hover { color: #d4ff9e; }
+
+    .eyebrow a:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+
     h1 {
       margin: 0;
       font-size: 28px;
@@ -194,9 +226,8 @@
       min-width: 0;
     }
 
-    /* The dock toggle: a glossy two-tone capsule, like a pill, aqua on one
-       half and white on the other, in the middle of the info row on the bar
-       itself. Pressed, it hides the whole bar; then it's the only thing
+    /* The dock toggle: a glossy capsule, like a pill, in the middle of the
+       info row on the bar itself. Pressed, it hides the whole bar; then it's the only thing
        left, just under the top of the screen, ready to bring the bar back. */
     .dock-toggle {
       appearance: none;
@@ -212,9 +243,7 @@
       padding: 0;
       border: 1px solid var(--pill-border);
       border-radius: 999px;
-      background:
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.2) 46%, rgba(255, 255, 255, 0) 50%, rgba(255, 255, 255, 0.12) 100%),
-        linear-gradient(to right, #4fc4ee 0 50%, #f2fbff 50% 100%);
+      background: var(--pill);
       color: var(--ink);
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.95),
@@ -229,7 +258,12 @@
       filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8));
     }
 
+    /* On hover the capsule's colours blend from aqua into white, with the
+       same gloss across the top. */
     .dock-toggle:hover {
+      background:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.2) 46%, rgba(255, 255, 255, 0) 50%, rgba(255, 255, 255, 0.12) 100%),
+        linear-gradient(to right, #4fc4ee 0%, #9fe0f6 45%, #f2fbff 100%);
       border-color: #2f8fd8;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.95),
@@ -502,6 +536,134 @@
 
     .unit-switch[hidden] { display: none; }
 
+    /* ---------- little XP-style windows over the scene ---------- */
+
+    /* Fixed to the window and above the header bar (z-index 10), so the
+       message box can be dragged anywhere, over the bar too. */
+    .xp-window {
+      position: fixed;
+      z-index: 20;
+      min-width: 200px;
+      max-width: calc(100% - 32px);
+      overflow: hidden;
+      background: linear-gradient(to bottom, #fbfdf6, #eef5e3);
+      border: 1px solid #4f8a17;
+      border-radius: 8px 8px 5px 5px;
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+        0 8px 22px rgba(0, 30, 70, 0.38);
+      color: #1f3a10;
+      font-size: 13px;
+      user-select: none;
+    }
+
+    .xp-window[hidden] { display: none; }
+
+    /* The glossy lime title bar, as on the old XP windows. */
+    .xp-title {
+      display: flex;
+      align-items: center;
+      height: 24px;
+      padding: 0 10px;
+      background: linear-gradient(to bottom, #eaffb2 0%, #c6f064 44%, #98d531 56%, #b4e858 100%);
+      border-bottom: 1px solid #4f8a17;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-shadow: 0 1px 1px rgba(30, 70, 0, 0.85), 0 0 4px rgba(30, 70, 0, 0.4);
+      touch-action: none;
+    }
+
+    .xp-body {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px 8px;
+    }
+
+    .xp-icon { width: 32px; height: 32px; flex: none; }
+
+    .xp-text { margin: 0; font-weight: 600; }
+
+    .xp-sub { margin: 2px 0 0; font-size: 11px; color: #4b6b33; }
+
+    /* The hint's countdown: a segmented XP progress bar that empties over
+       the 10 seconds before the hint goes. */
+    /* The bubbles hint is softer than the message box: fully rounded, with
+       a smooth, glossy bar instead of XP's segmented one. */
+    .xp-hint {
+      left: 16px;
+      bottom: 16px;
+      min-width: 0;
+      border-radius: 999px;
+    }
+
+    /* One slim line: the icon and the text side by side. */
+    .xp-hint .xp-body {
+      gap: 8px;
+      padding: 5px 16px 3px 10px;
+    }
+
+    .xp-hint .xp-icon { width: 20px; height: 20px; }
+
+    .xp-hint .xp-text { white-space: nowrap; font-size: 12px; }
+
+    .xp-hint .xp-sub { display: inline; margin: 0; font-weight: 400; }
+
+    @media (max-width: 640px) {
+      .xp-hint .xp-sub { display: none; }   /* too long for one line on a phone */
+    }
+
+    /* And a thin countdown line along the bottom of the capsule. */
+    .xp-progress {
+      height: 4px;
+      margin: 0 18px 5px;
+      background: rgba(79, 138, 23, 0.15);
+      border-radius: 999px;
+    }
+
+    .xp-progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(to bottom, #b8ef5c, #6cc423);
+      animation: xp-countdown 10s linear forwards;
+    }
+
+    @keyframes xp-countdown {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+
+    .xp-actions {
+      display: flex;
+      justify-content: center;
+      padding: 4px 16px 14px;
+    }
+
+    .xp-button {
+      appearance: none;
+      min-width: 76px;
+      padding: 3px 16px;
+      background: linear-gradient(to bottom, #ffffff, #e2f1d2);
+      border: 1px solid #3c6f14;
+      border-radius: 4px;
+      box-shadow: inset 0 1px 0 #ffffff, 0 1px 1px rgba(30, 60, 10, 0.25);
+      color: #1f3a10;
+      font: inherit;
+      font-weight: 600;
+    }
+
+    .xp-button:hover {
+      border-color: #2f8fd8;
+      box-shadow: inset 0 1px 0 #ffffff, 0 0 0 2px rgba(89, 208, 255, 0.45);
+    }
+
+    .xp-button:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
     .unit-switch button { min-width: 64px; }
 
     @media (max-width: 640px) {
@@ -541,7 +703,7 @@
   <header>
     <div class="bar-top">
       <div class="identity">
-        <p class="eyebrow">WebGL</p>
+        <p class="eyebrow">WebGL <span aria-hidden="true">&middot;</span> <a class="repo-link" href="https://github.com/Maya2234/CGProject2" target="_blank" rel="noopener noreferrer" aria-label="Source code on GitHub (opens in a new tab)" title="Source code on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></p>
         <h1>Cube World Aero</h1>
         <p class="byline">
           <!-- A glossy aqua user icon, in the Aero style: a ball for the head
@@ -645,6 +807,50 @@
     <div class="zoom unit-switch" id="units" role="group" aria-label="Units: one cube or a grid" hidden>
       <button type="button" data-unit="0" aria-pressed="true" title="Level 0 &mdash; a single 2 &times; 2 &times; 2 cube">Cube</button>
       <button type="button" data-unit="1a" aria-pressed="false" title="Level 1a &mdash; a grid of cubes, translation only">Grid</button>
+    </div>
+
+    <!-- Level 4's hint: a slim capsule in the bottom-left the first time Level
+         4 opens, with a thin line that empties over the 10 seconds before it
+         goes. -->
+    <div class="xp-window xp-hint" id="hint" role="status" hidden>
+      <div class="xp-body">
+        <svg class="xp-icon" viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <radialGradient id="hint-bubble" cx="40%" cy="35%" r="65%">
+              <stop offset="0" stop-color="#ffffff"/>
+              <stop offset="0.55" stop-color="#c9f0ff"/>
+              <stop offset="1" stop-color="#5cc4ee"/>
+            </radialGradient>
+          </defs>
+          <circle cx="13" cy="17" r="10" fill="url(#hint-bubble)" stroke="#2f8fd8" stroke-width="1.2"/>
+          <ellipse cx="10" cy="12.5" rx="4" ry="2.3" fill="#ffffff" opacity="0.9"/>
+          <circle cx="25" cy="8" r="4.5" fill="url(#hint-bubble)" stroke="#2f8fd8" stroke-width="1"/>
+        </svg>
+        <p class="xp-text">Tap to blow bubbles <span class="xp-sub">&middot; drag to look around &middot; right-drag to move</span></p>
+      </div>
+      <div class="xp-progress" aria-hidden="true"><div class="xp-progress-fill" id="hint-fill"></div></div>
+    </div>
+
+    <!-- The first time Level 4 opens: a message box at a random spot. Drag
+         it by its title bar; OK closes it. It doesn't block anything else. -->
+    <div class="xp-window xp-dialog" id="immerse" role="alertdialog" aria-labelledby="immerse-title" aria-describedby="immerse-text" hidden>
+      <div class="xp-title" id="immerse-title"><span>Cube World Aero</span></div>
+      <div class="xp-body">
+        <svg class="xp-icon" viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <linearGradient id="warning-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#eaffb0"/>
+              <stop offset="0.5" stop-color="#b7ec4a"/>
+              <stop offset="1" stop-color="#6fbf1f"/>
+            </linearGradient>
+          </defs>
+          <path d="M16 3 L30 28 H2 Z" fill="url(#warning-fill)" stroke="#1d2a10" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M16 11 V20" stroke="#1d2a10" stroke-width="3.2" stroke-linecap="round"/>
+          <circle cx="16" cy="24.2" r="1.8" fill="#1d2a10"/>
+        </svg>
+        <p class="xp-text" id="immerse-text">Immerse yourself.</p>
+      </div>
+      <div class="xp-actions"><button type="button" class="xp-button" id="immerse-ok">OK</button></div>
     </div>
 
     <div class="view-controls">
