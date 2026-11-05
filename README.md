@@ -1,40 +1,21 @@
 # Cube World Aero
 
-*A Frutiger Aero city built from cubes in raw WebGL. Maya Tomarchio, Computer Graphics, Fall 2026.*
-
-- **Live app:** _TODO: link to the hosted page_
+- **Live app:** https://maya2234.github.io/AeroCubeWorld/
 - **Source code:** https://github.com/Maya2234/CGProject2
-- **Demo video:** _TODO: link (YouTube or the portfolio page)_
+- **Demo video:** http://localhost:4322/projects/cube-world-aero
 
-> **Draft.** Screenshots are marked `TODO` with what each one should show.
-> Save them in `docs/screenshots/` with the file names given.
+## Design
+I want to make a green natural field landscape for early levels, and incorporate water, hills, and buildings as landscape increases in complexity. I want to add butterflies, clouds, and bubbles for the motion aspect.
 
----
+styled after the early-2000s *Frutiger Aero*: bright skies, glossy glass buttons, bubbles, green hills, clean white towers.
 
-## 1. Design plans
-
-**Idea.** Start from a single cube and build, level by level, up to a whole
-city you can fly around, styled after the early-2000s *Frutiger Aero* look:
-bright skies, glossy glass buttons, bubbles, green hills, clean white towers.
-
-**Goals**
-
-- Everything drawn with the raw WebGL API: no 3D library. Matrices, geometry
-  and shaders are written by hand.
-- Each level adds one idea, so the project doubles as a walkthrough of the
-  course concepts.
-- The interface matches the scene: glossy pill buttons, XP-style message
+- Interface: glossy pill buttons, XP-style message
   windows, aqua glass cursors.
 
-**Look and feel references:** Windows XP / Vista / 7 interfaces, Frutiger Aero
-wallpapers (green fields, blue skies, bubbles, wind turbines).
-
-`TODO: docs/screenshots/moodboard.png` *(a few reference images side by side)*
+<img width="736" height="414" alt="image" src="https://github.com/user-attachments/assets/e821006c-338e-460e-a96d-71554ca4ba75" />
+<img width="736" height="736" alt="image" src="https://github.com/user-attachments/assets/12d81263-6a95-4ea5-a4af-92b2d9572e93" />
 
 ---
-
-## 2. The application
-
 ### Levels
 
 | Tab | What it shows | New idea |
@@ -46,7 +27,10 @@ wallpapers (green fields, blue skies, bubbles, wind turbines).
 | **3** | The city with a living sky | Clouds, butterflies and bubbles on Bézier curves |
 | **4** | A whole city to explore | Haze, a rainbow, a steerable camera, blowing bubbles |
 
-`TODO: docs/screenshots/levels.png` *(one screenshot of each tab)*
+<img width="1911" height="868" alt="image" src="https://github.com/user-attachments/assets/f7dbed84-8eda-4679-a93a-060b5889da2d" />
+<img width="1917" height="862" alt="image" src="https://github.com/user-attachments/assets/ac9492d9-c928-49f4-ad92-2913511847eb" />
+<img width="1917" height="867" alt="image" src="https://github.com/user-attachments/assets/49c3099c-ddf6-489f-9439-d4b8b8de9b4c" />
+<img width="1917" height="861" alt="image" src="https://github.com/user-attachments/assets/420fcfd0-ea87-42b7-8e2a-134345782a13" />
 
 ### Controls
 
@@ -67,19 +51,13 @@ Switching levels resets the zoom and any dragged view. The first time Level 4
 opens, a hint and an "Immerse yourself" message box appear; the box can be
 dragged anywhere and closes with **OK**.
 
-The info bar shows how long the scene took to build and the frame rate, and
-says *fractional Brownian noise* (linked to a definition) when the terrain
-comes from noise.
+The info bar shows how long the scene took to build and the frame rate
 
-`TODO: docs/screenshots/controls.png` *(the bar and controls, labelled)*
-`TODO: docs/screenshots/docked.png` *(the bar hidden)*
-`TODO: docs/screenshots/level4-steering.png` *(a turned and tilted view)*
-`TODO: docs/screenshots/level4-bubbles.png` *(bubbles being blown)*
-`TODO: docs/screenshots/popups.png` *(the hint and the "Immerse yourself" box)*
+<img width="1911" height="168" alt="image" src="https://github.com/user-attachments/assets/f36fc958-1fe7-470a-b864-4d228a0ecba5" />
+<img width="1917" height="292" alt="image" src="https://github.com/user-attachments/assets/1cebfb6e-5d29-474d-961b-b9d9f4d0eb3f" />
+<img width="332" height="242" alt="image" src="https://github.com/user-attachments/assets/1c2bf57b-4f43-4022-a42d-d2e32bb9bba6" />
 
 ---
-
-## 3. How it works (and the course concepts behind it)
 
 ### 3D objects as vertices, edges and triangles
 Everything on screen is triangles. The **unit cube** is 36 vertices: 6 faces,
@@ -154,32 +132,11 @@ last cubes, so the end of the map never shows.
 
 ---
 
-## 4. Future work
+## Future work
 
 - **Lighting:** a moving sun and real shadows.
-- **Water:** reflections and ripples on the lake and river.
-- **Saving the view:** remember zoom, camera and the dock between visits.
 - **Touch gestures:** pinch to zoom, two-finger pan on phones.
 - **Performance:** draw only the cubes in view, to allow bigger cities.
-- **Attempted but not finished:** _TODO: anything you tried and set aside,
-  with a screenshot of where it got to._
-
+- ability to add elements like hills, buildings
+- simulated characters who drive, walk, swim 
 ---
-
-## 5. Running it
-
-It's a static page: serve the folder and open `index.html`. For example:
-
-```bash
-python -m http.server 8123
-```
-
-then visit http://localhost:8123. (Opening the file directly can block the
-map images from loading.)
-
-To rebuild the city maps:
-
-```bash
-node tools/make-city-maps.mjs
-node tools/make-city-maps.mjs metro
-```
