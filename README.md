@@ -1,7 +1,7 @@
 # Cube World Aero
 
 - **Live app:** https://maya2234.github.io/AeroCubeWorld/
-- **Source code:** https://github.com/Maya2234/CGProject2
+- **Source code:** https://github.com/Maya2234/AeroCubeWorld
 - **Demo video:** http://localhost:4322/projects/cube-world-aero
 
 ## Design
